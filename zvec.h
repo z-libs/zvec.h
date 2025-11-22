@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #define VEC_OK 0
 #define VEC_ERR -1
@@ -47,10 +48,26 @@ static inline int vec_push_##T(vec_##T *v, T value) {                           
     return VEC_OK;                                                                          \
 }                                                                                           \
                                                                                             \
-static inline void vec_pop_##T(vec_##T *v) {                                                \
-    if (v->length > 0) v->length--;                                                         \
+static inline int vec_extend_##T(vec_##T *v, const T *items, size_t count) {                \
+    if (v->length + count > v->capacity) {                                                  \
+        size_t new_cap = v->capacity == 0 ? 8 : v->capacity;                                \
+        while (new_cap < v->length + count) new_cap *= 2;                                   \
+        if (vec_reserve_##T(v, new_cap) != VEC_OK) return VEC_ERR;                          \
+    }                                                                                       \
+    memcpy(v->data + v->length, items, count * sizeof(T));                                  \
+    v->length += count;                                                                     \
+    return VEC_OK;                                                                          \
 }                                                                                           \
                                                                                             \
+static inline void vec_pop_##T(vec_##T *v) {                                                \
+    assert(v->length > 0 && "Popping empty vector");                                        \
+    v->length--;                                                                            \
+}                                                                                           \
+                                                                                            \
+static inline T vec_pop_get_##T(vec_##T *v) {                                               \
+    assert(v->length > 0 && "Vector is empty, cannot pop!");                                \
+    return v->data[--v->length];                                                            \
+}                                                                                           \
 static inline void vec_shrink_to_fit_##T(vec_##T *v) {                                      \
     if (v->length == 0) {                                                                   \
         free(v->data);                                                                      \
@@ -66,6 +83,10 @@ static inline void vec_shrink_to_fit_##T(vec_##T *v) {                          
                                                                                             \
 static inline T* vec_at_##T(vec_##T *v, size_t index) {                                     \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
+}                                                                                           \
+                                                                                            \
+static inline T* vec_data_##T(vec_##T *v) {                                                 \
+    return v->data;                                                                         \
 }                                                                                           \
                                                                                             \
 static inline T* vec_last_##T(vec_##T *v) {                                                 \
@@ -93,39 +114,68 @@ static inline void vec_free_##T(vec_##T *v) {                                   
     *v = (vec_##T){0};                                                                      \
 }                                                                                           \
                                                                                             \
+static inline void vec_reverse_##T(vec_##T *v) {                                            \
+    if (v->length < 2) return;                                                              \
+    size_t i = 0, j = v->length - 1;                                                        \
+    while (i < j) {                                                                         \
+        T temp = v->data[i];                                                                \
+        v->data[i] = v->data[j];                                                            \
+        v->data[j] = temp;                                                                  \
+        i++; j--;                                                                           \
+    }                                                                                       \
+}                                                                                           \
+                                                                                            \
 static inline void vec_sort_##T(vec_##T *v, int (*compar)(const T *, const T *)) {          \
     if (v->length > 1) {                                                                    \
         int (*qsort_cmp)(const void *, const void *) =                                      \
             (int (*)(const void *, const void *))compar;                                    \
         qsort(v->data, v->length, sizeof(T), qsort_cmp);                                    \
     }                                                                                       \
+}                                                                                           \
+                                                                                            \
+static inline T* vec_bsearch_##T(vec_##T *v, const void *key,                               \
+                                 int (*compar)(const T *, const T *)) {                     \
+    if (v->length == 0) return NULL;                                                        \
+    int (*bsearch_cmp)(const void *, const void *) =                                        \
+        (int (*)(const void *, const void *))compar;                                        \
+    return (T*) bsearch(key, v->data, v->length, sizeof(T), bsearch_cmp);                   \
 }
 
 #define PUSH_ENTRY(T)     vec_##T*: vec_push_##T,
+#define EXTEND_ENTRY(T)   vec_##T*: vec_extend_##T,
 #define RESERVE_ENTRY(T)  vec_##T*: vec_reserve_##T,
 #define IS_EMPTY_ENTRY(T) vec_##T*: vec_is_empty_##T,
 #define AT_ENTRY(T)       vec_##T*: vec_at_##T,
+#define DATA_ENTRY(T)     vec_##T*: vec_data_##T,
 #define LAST_ENTRY(T)     vec_##T*: vec_last_##T,
 #define FREE_ENTRY(T)     vec_##T*: vec_free_##T,
 #define POP_ENTRY(T)      vec_##T*: vec_pop_##T,
+#define POP_GET_ENTRY(T)  vec_##T*: vec_pop_get_##T,
 #define SHRINK_ENTRY(T)   vec_##T*: vec_shrink_to_fit_##T,
 #define REMOVE_ENTRY(T)   vec_##T*: vec_remove_##T,
 #define SWAP_REM_ENTRY(T) vec_##T*: vec_swap_remove_##T,
 #define CLEAR_ENTRY(T)    vec_##T*: vec_clear_##T,
+#define REVERSE_ENTRY(T)  vec_##T*: vec_reverse_##T,
 #define SORT_ENTRY(T)     vec_##T*: vec_sort_##T,
+#define BSEARCH_ENTRY(T)  vec_##T*: vec_bsearch_##T,
 
-#define vec_push(v, val)      _Generic((v), REGISTER_TYPES(PUSH_ENTRY)      default: 0)      (v, val)
-#define vec_reserve(v, cap)   _Generic((v), REGISTER_TYPES(RESERVE_ENTRY)   default: 0)      (v, cap)
-#define vec_is_empty(v)       _Generic((v), REGISTER_TYPES(IS_EMPTY_ENTRY)  default: 0)      (v)
-#define vec_at(v, idx)        _Generic((v), REGISTER_TYPES(AT_ENTRY)        default: (void)0)(v, idx)
-#define vec_last(v)           _Generic((v), REGISTER_TYPES(LAST_ENTRY)      default: (void)0)(v)
-#define vec_free(v)           _Generic((v), REGISTER_TYPES(FREE_ENTRY)      default: (void)0)(v)
-#define vec_pop(v)            _Generic((v), REGISTER_TYPES(POP_ENTRY)       default: (void)0)(v)
-#define vec_shrink_to_fit(v)  _Generic((v), REGISTER_TYPES(SHRINK_ENTRY)    default: (void)0)(v)
-#define vec_remove(v, i)      _Generic((v), REGISTER_TYPES(REMOVE_ENTRY)    default: (void)0)(v, i)
-#define vec_swap_remove(v, i) _Generic((v), REGISTER_TYPES(SWAP_REM_ENTRY)  default: (void)0)(v, i)
-#define vec_clear(v)          _Generic((v), REGISTER_TYPES(CLEAR_ENTRY)     default: (void)0)(v)
-#define vec_sort(v, cmp)      _Generic((v), REGISTER_TYPES(SORT_ENTRY)      default: (void)0)(v, cmp)
+#define vec_push(v, val)          _Generic((v), REGISTER_TYPES(PUSH_ENTRY)      default: 0)      (v, val)
+#define vec_extend(v, arr, count) _Generic((v), REGISTER_TYPES(EXTEND_ENTRY)    default: 0)      (v, arr, count)
+#define vec_reserve(v, cap)       _Generic((v), REGISTER_TYPES(RESERVE_ENTRY)   default: 0)      (v, cap)
+#define vec_is_empty(v)           _Generic((v), REGISTER_TYPES(IS_EMPTY_ENTRY)  default: 0)      (v)
+#define vec_at(v, idx)            _Generic((v), REGISTER_TYPES(AT_ENTRY)        default: (void)0)(v, idx)
+#define vec_data(v)               _Generic((v), REGISTER_TYPES(DATA_ENTRY)      default: (void)0)(v)
+#define vec_last(v)               _Generic((v), REGISTER_TYPES(LAST_ENTRY)      default: (void)0)(v)
+#define vec_free(v)               _Generic((v), REGISTER_TYPES(FREE_ENTRY)      default: (void)0)(v)
+#define vec_pop(v)                _Generic((v), REGISTER_TYPES(POP_ENTRY)       default: (void)0)(v)
+#define vec_pop_get(v)            _Generic((v), REGISTER_TYPES(POP_ENTRY)       default: (void)0)(v)
+#define vec_shrink_to_fit(v)      _Generic((v), REGISTER_TYPES(SHRINK_ENTRY)    default: (void)0)(v)
+#define vec_remove(v, i)          _Generic((v), REGISTER_TYPES(REMOVE_ENTRY)    default: (void)0)(v, i)
+#define vec_swap_remove(v, i)     _Generic((v), REGISTER_TYPES(SWAP_REM_ENTRY)  default: (void)0)(v, i)
+#define vec_clear(v)              _Generic((v), REGISTER_TYPES(CLEAR_ENTRY)     default: (void)0)(v)
+#define vec_reverse(v)            _Generic((v), REGISTER_TYPES(REVERSE_ENTRY)   default: (void)0)(v)
+#define vec_sort(v, cmp)          _Generic((v), REGISTER_TYPES(SORT_ENTRY)      default: (void)0)(v, cmp)
+#define vec_bsearch(v, key, cmp)  _Generic((v), REGISTER_TYPES(BSEARCH_ENTRY)   default: (void)0)(v, key, cmp)
 
 #define vec_init(T) {0}
 #define vec_init_with_cap(T, cap) vec_init_capacity_##T(cap)
