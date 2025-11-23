@@ -1,47 +1,8 @@
-/* 
- * GENERATED FILE - DO NOT EDIT DIRECTLY
- * Source: zvec.c
- */
-
-
-/* ============================================================================
-   z-libs Common Definitions (Bundled)
-   This block is auto-generated. It is guarded so that if you include multiple
-   z-libs it is only defined once.
-   ============================================================================ */
-#ifndef Z_COMMON_BUNDLED
-#define Z_COMMON_BUNDLED
-
-
-#ifndef ZCOMMON_H
-#define ZCOMMON_H
-
-#include <stddef.h>
-
-// Return Codes.
-#define Z_OK     0
-#define Z_ERR   -1
-#define Z_FOUND  1
-
-// Memory Macros.
-// If the user hasn't defined their own allocator, use the standard one.
-#ifndef Z_MALLOC
-    #include <stdlib.h>
-    #define Z_MALLOC(sz)       malloc(sz)
-    #define Z_REALLOC(p, sz)   realloc(p, sz)
-    #define Z_FREE(p)          free(p)
-#endif
-
-#endif
-
-
-#endif // Z_COMMON_BUNDLED
-/* ============================================================================ */
-
 
 #ifndef ZVEC_H
 #define ZVEC_H
-// [Bundled] "zcommon.h" is included inline below
+
+#include "zcommon.h"
 #include <string.h>
 #include <assert.h>
 
