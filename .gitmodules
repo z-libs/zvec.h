@@ -1,0 +1,3 @@
+[submodule "z-core"]
+	path = z-core
+	url = https://github.com/z-libs/z-core.git
