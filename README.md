@@ -128,6 +128,26 @@ int main(void)
 | `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
 
+## Extensions (Experimental)
+
+If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free vectors when they go out of scope.
+
+| Macro | Description |
+| :--- | :--- |
+| `vec_autofree(Type)` | Declares a vector that automatically calls `vec_free` when the variable leaves scope (RAII style). |
+
+**Example:**
+```c
+void process_data()
+{
+    // 'nums' will be automatically freed when this function returns.
+    vec_autofree(int) nums = vec_init(int);
+    vec_push(&nums, 100);
+}
+```
+
+> **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
+
 ## Memory Management
 
 By default, `zvec.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
