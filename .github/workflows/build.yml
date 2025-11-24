@@ -1,0 +1,46 @@
+name: Build and Sync
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  #    This runs every day at midnight UTC to check for z-core updates
+  schedule:
+    - cron: '0 0 * * *'
+  # Allows you to click "Run workflow" manually in GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      # Update z-core to the latest commit
+      - name: Update z-core submodule
+        run: |
+          git submodule update --remote --merge
+          echo "Submodule updated to latest remote version."
+
+      - name: Run Make
+        run: make
+
+      - name: Commit and Push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto-update: Bump z-core and regenerate zvec.h [skip ci]"
+          file_pattern: '.'
