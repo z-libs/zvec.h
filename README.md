@@ -128,6 +128,46 @@ int main(void)
 | `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
 
+## Memory Management
+
+By default, `zvec.h` uses the standard C library functions (`malloc`, `calloc`, `realloc`, `free`).
+
+However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
+
+To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zvec.h`.
+
+**Example: my_vectors.h**
+
+```c
+#ifndef MY_VECTORS_H
+#define MY_VECTORS_H
+
+// 1. Define your custom memory macros HERE
+#include "my_memory_system.h" 
+
+// IMPORTANT: Override all four to prevent mixing allocators
+#define Z_MALLOC(sz)      my_custom_alloc(sz)
+#define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
+#define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
+#define Z_FREE(p)         my_custom_free(p)
+
+// 2. Then include the library
+#include "zvec.h"
+
+// 3. Register your types as normal
+typedef struct { float x, y; } Point;
+
+#define REGISTER_TYPES(X) \
+    X(int, int)           \
+    X(Point, Point)
+
+REGISTER_TYPES(DEFINE_VEC_TYPE)
+
+#endif
+```
+
+> **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
+
 ## Notes
 
 ### Why do I need to provide a "Short Name"?
