@@ -142,19 +142,18 @@ To use a custom allocator, define the `Z_` macros **inside your registry header*
 #ifndef MY_VECTORS_H
 #define MY_VECTORS_H
 
-// 1. Define your custom memory macros HERE
+// Define your custom memory macros **HERE**.
 #include "my_memory_system.h" 
 
-// IMPORTANT: Override all four to prevent mixing allocators
+// IMPORTANT: Override all four to prevent mixing allocators.
 #define Z_MALLOC(sz)      my_custom_alloc(sz)
 #define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
 #define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
 #define Z_FREE(p)         my_custom_free(p)
 
-// 2. Then include the library
+// Then include the library.
 #include "zvec.h"
 
-// 3. Register your types as normal
 typedef struct { float x, y; } Point;
 
 #define REGISTER_TYPES(X) \
