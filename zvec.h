@@ -36,6 +36,17 @@
     #define Z_FREE(p)          free(p)
 #endif
 
+// Compiler Extensions (Optional).
+// We check for GCC/Clang features to enable RAII-style cleanup.
+// Define Z_NO_EXTENSIONS to disable this manually.
+#if !defined(Z_NO_EXTENSIONS) && (defined(__GNUC__) || defined(__clang__))
+    #define Z_HAS_CLEANUP 1
+    #define Z_CLEANUP(func) __attribute__((cleanup(func)))
+#else
+    #define Z_HAS_CLEANUP 0
+    #define Z_CLEANUP(func) 
+#endif
+
 #endif
 
 
@@ -275,6 +286,10 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
 
 #define vec_init(Name) {0}
 #define vec_init_with_cap(Name, cap) vec_init_capacity_##Name(cap)
+
+#if Z_HAS_CLEANUP
+    #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
+#endif
 
 #define VEC_CAT(a, b) a##b
 #define VEC_NAME(a, b) VEC_CAT(a, b)
