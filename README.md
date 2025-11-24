@@ -134,6 +134,8 @@ By default, `zvec.h` uses the standard C library functions (`malloc`, `calloc`, 
 
 However, you can override these to use your own memory subsystem (e.g., **Memory Arenas**, **Pools**, or **Debug Allocators**).
 
+### First Option: Global Override (Recommended)
+
 To use a custom allocator, define the `Z_` macros **inside your registry header**, immediately before including `zvec.h`.
 
 **Example: my_vectors.h**
@@ -143,29 +145,41 @@ To use a custom allocator, define the `Z_` macros **inside your registry header*
 #define MY_VECTORS_H
 
 // Define your custom memory macros **HERE**.
-#include "my_memory_system.h" 
+#include "my_memory_system.h"
 
 // IMPORTANT: Override all four to prevent mixing allocators.
+//            This applies to all the z-libs.
 #define Z_MALLOC(sz)      my_custom_alloc(sz)
 #define Z_CALLOC(n, sz)   my_custom_calloc(n, sz)
 #define Z_REALLOC(p, sz)  my_custom_realloc(p, sz)
 #define Z_FREE(p)         my_custom_free(p)
 
+
 // Then include the library.
 #include "zvec.h"
 
-typedef struct { float x, y; } Point;
+// ... Register types ...
 
-#define REGISTER_TYPES(X) \
-    X(int, int)           \
-    X(Point, Point)
-
-REGISTER_TYPES(DEFINE_VEC_TYPE)
 
 #endif
 ```
 
 > **Note:** You **must** override **all four macros** (`MALLOC`, `CALLOC`, `REALLOC`, `FREE`) if you override one, to ensure consistency.
+
+### Second Option: Library-Specific Override (Advanced)
+
+If you need different allocators for different containers (e.g., an Arena for Lists but the Heap for Vectors), you can use the library-specific macros. These take priority over the global `Z_` macros.
+
+```c
+// Example: Vectors use a Frame Arena, everything else uses standard malloc.
+#define Z_VEC_CALLOC(n, sz)  arena_alloc_zero(frame_arena, (n) * (sz))
+#define Z_VEC_REALLOC(p, sz) arena_resize(frame_arena, p, sz)
+#define Z_VEC_FREE(p)        /* no-op for linear arena */
+// (Z_VEC_MALLOC is strictly unused by zvec internally, but good to define for consistency).
+
+#include "zvec.h"
+#include "zlist.h" // zlist will still use standard malloc!
+```
 
 ## Notes
 
