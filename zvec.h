@@ -49,6 +49,22 @@
 #include <string.h>
 #include <assert.h>
 
+#ifndef Z_VEC_MALLOC
+    #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
+#endif
+
+#ifndef Z_VEC_CALLOC
+    #define Z_VEC_CALLOC(n, sz)   Z_CALLOC(n, sz)
+#endif
+
+#ifndef Z_VEC_REALLOC
+    #define Z_VEC_REALLOC(p, sz)  Z_REALLOC(p, sz)
+#endif
+
+#ifndef Z_VEC_FREE
+    #define Z_VEC_FREE(p)         Z_FREE(p)
+#endif
+
 #define DEFINE_VEC_TYPE(T, Name)                                                            \
                                                                                             \
 typedef T zvec_T_##Name;                                                                    \
