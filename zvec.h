@@ -1,6 +1,9 @@
-/* 
+/*
  * GENERATED FILE - DO NOT EDIT DIRECTLY
  * Source: zvec.c
+ *
+ * This file is part of the z-libs collection: https://github.com/z-libs
+ * Licensed under the MIT License.
  */
 
 
@@ -41,7 +44,7 @@
 
 #ifndef ZVEC_H
 #define ZVEC_H
-// [Bundled] "zcommon.h" is included inline below
+// [Bundled] "zcommon.h" is included inline in this same file
 #include <string.h>
 #include <assert.h>
 
