@@ -19,7 +19,7 @@ typedef struct {                                                                
 static inline vec_##Name vec_init_capacity_##Name(size_t cap) {                             \
     vec_##Name v = {0};                                                                     \
     if (cap > 0) {                                                                          \
-        v.data = calloc(cap, sizeof(T));                                                    \
+        v.data = Z_CALLOC(cap, sizeof(T));                                                  \
         v.capacity = v.data ? cap : 0;                                                      \
     }                                                                                       \
     return v;                                                                               \
@@ -36,7 +36,7 @@ static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count) {    
                                                                                             \
 static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap) {                       \
     if (new_cap <= v->capacity) return Z_OK;                                                \
-    T *new_data = realloc(v->data, new_cap * sizeof(T));                                    \
+    T *new_data = Z_REALLOC(v->data, new_cap * sizeof(T));                                  \
     if (!new_data) return Z_ERR;                                                            \
     v->data = new_data;                                                                     \
     v->capacity = new_cap;                                                                  \
@@ -84,12 +84,12 @@ static inline T vec_pop_get_##Name(vec_##Name *v) {                             
 }                                                                                           \
 static inline void vec_shrink_to_fit_##Name(vec_##Name *v) {                                \
     if (v->length == 0) {                                                                   \
-        free(v->data);                                                                      \
+        Z_FREE(v->data);                                                                    \
         *v = (vec_##Name){0};                                                               \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
-    T *new_data = realloc(v->data, v->length * sizeof(T));                                  \
+    T *new_data = Z_REALLOC(v->data, v->length * sizeof(T));                                \
     if (!new_data) return;                                                                  \
     v->data = new_data;                                                                     \
     v->capacity = v->length;                                                                \
@@ -124,7 +124,7 @@ static inline void vec_clear_##Name(vec_##Name *v) {                            
 }                                                                                           \
                                                                                             \
 static inline void vec_free_##Name(vec_##Name *v) {                                         \
-    free(v->data);                                                                          \
+    Z_FREE(v->data);                                                                        \
     *v = (vec_##Name){0};                                                                   \
 }                                                                                           \
                                                                                             \
