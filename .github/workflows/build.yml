@@ -5,10 +5,8 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  #    This runs every day at midnight UTC to check for z-core updates
   schedule:
     - cron: '0 0 * * *'
-  # Allows you to click "Run workflow" manually in GitHub Actions tab
   workflow_dispatch:
 
 permissions:
@@ -30,11 +28,22 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Update z-core to the latest commit
       - name: Update z-core submodule
         run: |
           git submodule update --remote --merge
           echo "Submodule updated to latest remote version."
+
+      - name: Test Z-Scanner
+        run: |
+          echo "Running scanner on examples/..."
+          python3 z-core/zscanner.py examples/ include/z_registry.h
+          if [ -f "include/z_registry.h" ]; then
+            echo "Scanner successfully generated registry!"
+            cat include/z_registry.h
+          else
+            echo "Scanner failed to generate registry."
+            exit 1
+          fi
 
       - name: Run Make
         run: make

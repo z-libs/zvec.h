@@ -1,33 +1,33 @@
-
 #include <stdio.h>
-#include "my_vectors.h"
+#include "zvec.h" // Include the library directly
+
+typedef struct {
+    float x, y;
+} Point;
+
+DEFINE_VEC_TYPE(int, Int)
+DEFINE_VEC_TYPE(Point, Point)
 
 int main(void) 
 {
-    vec_int nums = vec_init(int);
+    vec_Int nums = vec_init(Int);
 
     vec_push(&nums, 10);
     vec_push(&nums, 20);
     vec_push(&nums, 30);
 
     printf("Integers: ");
-   
     int *ptr; 
-    vec_foreach(&nums, ptr)
-    {
+    vec_foreach(&nums, ptr) {
         printf("%d ", *ptr);
     }
     printf("\n");
 
     vec_Point points = vec_init(Point);
-
     vec_push(&points, ((Point){1.5f, 2.5f}));
-    vec_push(&points, ((Point){3.0f, 4.0f}));
-
+    
     Point *p0 = vec_at(&points, 0);
-    printf("Point 0: {x: %.1f, y: %.1f}\n", p0->x, p0->y);
-    Point *p1 = vec_at(&points, 1);
-    printf("Point 1: {x: %.1f, y: %.1f}\n", p1->x, p1->y);
+    if(p0) printf("Point 0: {x: %.1f, y: %.1f}\n", p0->x, p0->y);
 
     vec_free(&nums);
     vec_free(&points);
