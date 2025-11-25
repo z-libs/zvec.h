@@ -222,6 +222,8 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
     Z_AUTOGEN_VECS(X) \
     REGISTER_TYPES(X)
 
+Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
+
 #if Z_HAS_CLEANUP
     #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
 #endif
