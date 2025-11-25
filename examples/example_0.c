@@ -1,9 +1,11 @@
 #include <stdio.h>
-#include "zvec.h" // Include the library directly
 
-typedef struct {
+typedef struct 
+{
     float x, y;
 } Point;
+
+#include "zvec.h"
 
 DEFINE_VEC_TYPE(int, Int)
 DEFINE_VEC_TYPE(Point, Point)
