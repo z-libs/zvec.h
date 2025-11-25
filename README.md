@@ -4,82 +4,92 @@
 
 ## Features
 
-* **Type Safety**: Compiler errors if you try to push a float into a vec_int.
-* **Native Performance**: Data is stored in contiguous arrays of the actual type (no boxing or pointer indirection overhead).
-* **Header Only**: No build scripts or linking required.
-* **C11 Generics**: One API (`vec_push`, `vec_at`, etc.) works for all registered types.
+* **Type Safety**: Compiler errors if you try to push a `float` into a `vec_int`.
+* **Native Performance**: Data is stored in contiguous arrays of the actual type (no boxing or pointer indirection).
+* **Zero Boilerplate**: Use the **Z-Scanner** tool to automatically generate type registrations.
+* **Header Only**: No linking required.
+* **Memory Agnostic**: Supports custom allocators (Arenas, Pools, Debuggers).
 * **Zero Dependencies**: Only standard C headers used.
 
-## Installation & Setup
+## Quick Start (Automated)
 
-Since `zvec.h` generates code for your specific types, you don't just include the library: you create a Registry Header.
+The easiest way to use `zvec.h` is with the **Z-Scanner** tool, which scans your code and handles the boilerplate for you.
 
-> You can include the logic inside the source file, but if you are going to use the library in more than one, this is implementation prevents code duplication.
+### 1. Setup
 
-### 1. Add the library
+Add `zvec.h` and the `z-core` tools to your project:
 
-Copy `zvec.h` into your project's include directory.
+```bash
+# Copy zvec.h to your root or include folder.
+git submodule add https://github.com/z-libs/z-core.git z-core
+```
 
-### 2. Create a Registry Header
+### 2. Write Code
 
-Create a file named `my_vectors.h` (or similar) to define which types need vectors.
+You don't need a separate registry file. Just define the types you need right where you use them (or in your own headers).
 
 ```c
-// my_vectors.h
+#include <stdio.h>
+#include "zvec.h"
+
+// Define your struct.
+typedef struct { float x, y; } Point;
+
+// Request the vector types you need.
+// (These are no-ops for the compiler, but markers for the scanner).
+DEFINE_VEC_TYPE(int, Int)
+DEFINE_VEC_TYPE(Point, Point)
+
+int main(void)
+{
+    vec_Int nums = vec_init(Int);
+    vec_push(&nums, 42);
+
+    vec_Point path = vec_init(Point);
+    vec_push(&path, ((Point){1.0f, 2.0f}));
+
+    printf("First number: %d\n", *vec_at(&nums, 0));
+    
+    vec_free(&nums);
+    vec_free(&path);
+    return 0;
+}
+```
+
+### 3. Build
+
+Run the scanner before compiling. It will create a header that `zvec.h` automatically detects.
+
+```bash
+# Scan your source folder (for example, src/ or .) and output to 'z_registry.h'.
+python3 z-core/zscanner.py . z_registry.h
+
+# Compile (Include the folder where z_registry.h lives, or just move it).
+gcc main.c -I. -o game
+```
+
+## Manual Setup
+
+If you cannot use Python or prefer manual control, you can use the **Registry Header** approach.
+
+* Create a file named `my_vectors.h` (or something else).
+* Register your types using X-Macros.
+
+```c
 #ifndef MY_VECTORS_H
 #define MY_VECTORS_H
 
+#define REGISTER_TYPES(X) \
+    X(int, Int)           \
+    X(float, Float)
+
+// **IT HAS TO BE INCLUDED AFTER, NOT BEFORE**.
 #include "zvec.h"
-
-// You can keep custom struct definitions, but it's optional.
-typedef struct {
-    float x, y;
-} Point;
-
-// Register Types (The X-Macro):
-// Syntax: X(ActualType, ShortName).
-// - ActualType: The C type (e.g., 'unsigned long', 'struct Point').
-// - ShortName:  Suffix for the generated functions (e.g., 'ulong', 'Point').
-#define REGISTER_TYPES(X)     \
-    X(int, int)               \
-    X(unsigned long, ulong)   \
-    X(Point, Point)
-
-// This generates the implementation for you.
-REGISTER_TYPES(DEFINE_VEC_TYPE)
 
 #endif
 ```
 
-### 3. Use in your code
-
-Include your **registry header** (`my_vectors.h`), not `zvec.h`.
-
-```c
-#include <stdio.h>
-#include "my_vectors.h"
-
-int main(void)
-{
-    // Initialize (allocated on stack, internal data on heap).
-    vec_int nums = vec_init(int);
-
-    // Push values.
-    vec_push(&nums, 10);
-    vec_push(&nums, 20);
-
-    // Iterate.
-    int *n;
-    vec_foreach(&nums, n)
-    {
-        printf("%d ", *n);
-    }
-
-    // Cleanup.
-    vec_free(&nums);
-    return 0;
-}
-```
+* Include `"my_vectors.h"` instead of `"zvec.h"` in your C files.
 
 ## API Reference
 
