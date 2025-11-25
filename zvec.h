@@ -47,12 +47,18 @@
     #define Z_CLEANUP(func) 
 #endif
 
+// Metaprogramming Markers.
+// These macros are used by the Z-Scanner tool to find type definitions.
+// For the C compiler, they are no-ops (they compile to nothing).
+#define DEFINE_VEC_TYPE(T, Name)
+#define DEFINE_LIST_TYPE(T, Name)
+#define DEFINE_MAP_TYPE(Key, Val, Name)
+
 #endif
 
 
 #endif // Z_COMMON_BUNDLED
 /* ============================================================================ */
-
 
 #ifndef ZVEC_H
 #define ZVEC_H
@@ -89,7 +95,7 @@ typedef struct {                                                                
 static inline vec_##Name vec_init_capacity_##Name(size_t cap) {                             \
     vec_##Name v = {0};                                                                     \
     if (cap > 0) {                                                                          \
-        v.data = Z_CALLOC(cap, sizeof(T));                                                  \
+        v.data = Z_VEC_CALLOC(cap, sizeof(T));                                              \
         v.capacity = v.data ? cap : 0;                                                      \
     }                                                                                       \
     return v;                                                                               \
@@ -106,7 +112,7 @@ static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count) {    
                                                                                             \
 static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap) {                       \
     if (new_cap <= v->capacity) return Z_OK;                                                \
-    T *new_data = Z_REALLOC(v->data, new_cap * sizeof(T));                                  \
+    T *new_data = Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                              \
     if (!new_data) return Z_ERR;                                                            \
     v->data = new_data;                                                                     \
     v->capacity = new_cap;                                                                  \
@@ -154,12 +160,12 @@ static inline T vec_pop_get_##Name(vec_##Name *v) {                             
 }                                                                                           \
 static inline void vec_shrink_to_fit_##Name(vec_##Name *v) {                                \
     if (v->length == 0) {                                                                   \
-        Z_FREE(v->data);                                                                    \
+        Z_VEC_FREE(v->data);                                                                \
         *v = (vec_##Name){0};                                                               \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
-    T *new_data = Z_REALLOC(v->data, v->length * sizeof(T));                                \
+    T *new_data = Z_VEC_REALLOC(v->data, v->length * sizeof(T));                            \
     if (!new_data) return;                                                                  \
     v->data = new_data;                                                                     \
     v->capacity = v->length;                                                                \
@@ -194,7 +200,7 @@ static inline void vec_clear_##Name(vec_##Name *v) {                            
 }                                                                                           \
                                                                                             \
 static inline void vec_free_##Name(vec_##Name *v) {                                         \
-    Z_FREE(v->data);                                                                        \
+    Z_VEC_FREE(v->data);                                                                    \
     *v = (vec_##Name){0};                                                                   \
 }                                                                                           \
                                                                                             \
@@ -261,35 +267,31 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
 #define BSEARCH_ENTRY(T, Name)  vec_##Name*: vec_bsearch_##Name,
 #define LOWER_BOUND_ENTRY(T, Name) vec_##Name*: vec_lower_bound_##Name,
 
-#define vec_push(v, val)          _Generic((v), REGISTER_TYPES(PUSH_ENTRY)      default: 0)       (v, val)
-#define vec_push_slot(v)          _Generic((v), REGISTER_TYPES(PUSH_SLOT_ENTRY) default: (void*)0)(v)
-#define vec_extend(v, arr, count) _Generic((v), REGISTER_TYPES(EXTEND_ENTRY)    default: 0)       (v, arr, count)
-#define vec_reserve(v, cap)       _Generic((v), REGISTER_TYPES(RESERVE_ENTRY)   default: 0)       (v, cap)
-#define vec_is_empty(v)           _Generic((v), REGISTER_TYPES(IS_EMPTY_ENTRY)  default: 0)       (v)
-#define vec_at(v, idx)            _Generic((v), REGISTER_TYPES(AT_ENTRY)        default: (void*)0)(v, idx)
-#define vec_data(v)               _Generic((v), REGISTER_TYPES(DATA_ENTRY)      default: (void*)0)(v)
-#define vec_last(v)               _Generic((v), REGISTER_TYPES(LAST_ENTRY)      default: (void*)0)(v)
-#define vec_free(v)               _Generic((v), REGISTER_TYPES(FREE_ENTRY)      default: (void)0) (v)
-#define vec_pop(v)                _Generic((v), REGISTER_TYPES(POP_ENTRY)       default: (void)0) (v)
-#define vec_pop_get(v)            _Generic((v), REGISTER_TYPES(POP_GET_ENTRY)   default: (void)0) (v)
-#define vec_shrink_to_fit(v)      _Generic((v), REGISTER_TYPES(SHRINK_ENTRY)    default: (void)0) (v)
-#define vec_remove(v, i)          _Generic((v), REGISTER_TYPES(REMOVE_ENTRY)    default: (void)0) (v, i)
-#define vec_swap_remove(v, i)     _Generic((v), REGISTER_TYPES(SWAP_REM_ENTRY)  default: (void)0) (v, i)
-#define vec_clear(v)              _Generic((v), REGISTER_TYPES(CLEAR_ENTRY)     default: (void)0) (v)
-#define vec_reverse(v)            _Generic((v), REGISTER_TYPES(REVERSE_ENTRY)   default: (void)0) (v)
-#define vec_sort(v, cmp)          _Generic((v), REGISTER_TYPES(SORT_ENTRY)      default: (void)0) (v, cmp)
-#define vec_bsearch(v, k, c)      _Generic((v), REGISTER_TYPES(BSEARCH_ENTRY)     default: (void*)0)(v, k, c)
-#define vec_lower_bound(v, k, c)  _Generic((v), REGISTER_TYPES(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
+#if defined(__has_include) && __has_include("z_registry.h")
+    #include "z_registry.h"
+#endif
+
+#ifndef Z_AUTOGEN_VECS
+    #define Z_AUTOGEN_VECS(X)
+#endif
+
+#ifndef REGISTER_TYPES
+    #define REGISTER_TYPES(X)
+#endif
+
+#define Z_ALL_VECS(X) \
+    Z_AUTOGEN_VECS(X) \
+    REGISTER_TYPES(X)
+
+#if Z_HAS_CLEANUP
+    #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
+#endif
 
 #define vec_from(Name, ...) \
     vec_from_array_##Name((zvec_T_##Name[])__VA_ARGS__, sizeof((zvec_T_##Name[])__VA_ARGS__) / sizeof(zvec_T_##Name))
 
 #define vec_init(Name) {0}
 #define vec_init_with_cap(Name, cap) vec_init_capacity_##Name(cap)
-
-#if Z_HAS_CLEANUP
-    #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
-#endif
 
 #define VEC_CAT(a, b) a##b
 #define VEC_NAME(a, b) VEC_CAT(a, b)
@@ -298,5 +300,25 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
     for (size_t VEC_NAME(_i_, __LINE__) = 0; \
          VEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[VEC_NAME(_i_, __LINE__)]); \
          ++VEC_NAME(_i_, __LINE__))
+
+#define vec_push(v, val)          _Generic((v), Z_ALL_VECS(PUSH_ENTRY)      default: 0)       (v, val)
+#define vec_push_slot(v)          _Generic((v), Z_ALL_VECS(PUSH_SLOT_ENTRY) default: (void*)0)(v)
+#define vec_extend(v, arr, count) _Generic((v), Z_ALL_VECS(EXTEND_ENTRY)    default: 0)       (v, arr, count)
+#define vec_reserve(v, cap)       _Generic((v), Z_ALL_VECS(RESERVE_ENTRY)   default: 0)       (v, cap)
+#define vec_is_empty(v)           _Generic((v), Z_ALL_VECS(IS_EMPTY_ENTRY)  default: 0)       (v)
+#define vec_at(v, idx)            _Generic((v), Z_ALL_VECS(AT_ENTRY)        default: (void*)0)(v, idx)
+#define vec_data(v)               _Generic((v), Z_ALL_VECS(DATA_ENTRY)      default: (void*)0)(v)
+#define vec_last(v)               _Generic((v), Z_ALL_VECS(LAST_ENTRY)      default: (void*)0)(v)
+#define vec_free(v)               _Generic((v), Z_ALL_VECS(FREE_ENTRY)      default: (void)0) (v)
+#define vec_pop(v)                _Generic((v), Z_ALL_VECS(POP_ENTRY)       default: (void)0) (v)
+#define vec_pop_get(v)            _Generic((v), Z_ALL_VECS(POP_GET_ENTRY)   default: (void)0) (v)
+#define vec_shrink_to_fit(v)      _Generic((v), Z_ALL_VECS(SHRINK_ENTRY)    default: (void)0) (v)
+#define vec_remove(v, i)          _Generic((v), Z_ALL_VECS(REMOVE_ENTRY)    default: (void)0) (v, i)
+#define vec_swap_remove(v, i)     _Generic((v), Z_ALL_VECS(SWAP_REM_ENTRY)  default: (void)0) (v, i)
+#define vec_clear(v)              _Generic((v), Z_ALL_VECS(CLEAR_ENTRY)     default: (void)0) (v)
+#define vec_reverse(v)            _Generic((v), Z_ALL_VECS(REVERSE_ENTRY)   default: (void)0) (v)
+#define vec_sort(v, cmp)          _Generic((v), Z_ALL_VECS(SORT_ENTRY)      default: (void)0) (v, cmp)
+#define vec_bsearch(v, k, c)      _Generic((v), Z_ALL_VECS(BSEARCH_ENTRY)     default: (void*)0)(v, k, c)
+#define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
 
 #endif
