@@ -21,7 +21,7 @@
     #define Z_VEC_FREE(p)         Z_FREE(p)
 #endif
 
-#define DEFINE_VEC_TYPE(T, Name)                                                            \
+#define DEFINE_VEC_IMPL(T, Name)                                                            \
                                                                                             \
 typedef T zvec_T_##Name;                                                                    \
                                                                                             \
