@@ -54,6 +54,17 @@
 #define DEFINE_LIST_TYPE(T, Name)
 #define DEFINE_MAP_TYPE(Key, Val, Name)
 
+//Growth Strategy.
+// Determines how containers expand when full.
+// Default is 2.0x (Geometric Growth).
+//
+// Alternatives:
+// #define Z_GROWTH_FACTOR(c)  ((c) * 3 / 2) // 1.5x (Better for fragmentation)
+// #define Z_GROWTH_FACTOR(c)  ((c) + 16)    // Linear (Not recommended)
+#ifndef Z_GROWTH_FACTOR
+    #define Z_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
+#endif
+
 #endif
 
 
