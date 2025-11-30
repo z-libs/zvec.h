@@ -76,6 +76,28 @@
 // [Bundled] "zcommon.h" is included inline in this same file
 #include <string.h>
 #include <assert.h>
+#include <stdlib.h> 
+
+#ifdef __cplusplus
+#include <initializer_list>
+#include <stdexcept>
+#include <utility>
+#include <iterator>
+#include <algorithm>
+
+namespace z_vec 
+{
+    template <typename T>
+    struct traits 
+    {
+        // If you see an error here, it means
+        // you haven't generated the implementation for type T.
+        static_assert(sizeof(T) == 0, "No zvec implementation registered for this type.");
+    };
+}
+
+extern "C" {
+#endif
 
 #ifndef Z_VEC_MALLOC
     #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
@@ -103,54 +125,66 @@ typedef struct {                                                                
     size_t capacity;                                                                        \
 } vec_##Name;                                                                               \
                                                                                             \
-static inline vec_##Name vec_init_capacity_##Name(size_t cap) {                             \
-    vec_##Name v = {0};                                                                     \
-    if (cap > 0) {                                                                          \
-        v.data = Z_VEC_CALLOC(cap, sizeof(T));                                              \
+static inline vec_##Name vec_init_capacity_##Name(size_t cap)                               \
+{                                                                                           \
+    vec_##Name v;                                                                           \
+    memset(&v, 0, sizeof(vec_##Name));                                                      \
+    if (cap > 0)                                                                            \
+    {                                                                                       \
+        v.data = (T*)Z_VEC_CALLOC(cap, sizeof(T));                                          \
         v.capacity = v.data ? cap : 0;                                                      \
     }                                                                                       \
     return v;                                                                               \
 }                                                                                           \
                                                                                             \
-static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count) {                \
+static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count)                  \
+{                                                                                           \
     vec_##Name v = vec_init_capacity_##Name(count);                                         \
-    if (v.data) {                                                                           \
+    if (v.data)                                                                             \
+    {                                                                                       \
         memcpy(v.data, arr, count * sizeof(T));                                             \
         v.length = count;                                                                   \
     }                                                                                       \
     return v;                                                                               \
 }                                                                                           \
                                                                                             \
-static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap) {                       \
+static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap)                         \
+{                                                                                           \
     if (new_cap <= v->capacity) return Z_OK;                                                \
-    T *new_data = Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                              \
+    T *new_data = (T*)Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                          \
     if (!new_data) return Z_ERR;                                                            \
     v->data = new_data;                                                                     \
     v->capacity = new_cap;                                                                  \
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
-static inline int vec_is_empty_##Name(vec_##Name *v) {                                      \
+static inline int vec_is_empty_##Name(vec_##Name *v)                                        \
+{                                                                                           \
     return v->length == 0;                                                                  \
 }                                                                                           \
                                                                                             \
-static inline T* vec_push_slot_##Name(vec_##Name *v) {                                      \
-    if (v->length >= v->capacity) {                                                         \
+static inline T* vec_push_slot_##Name(vec_##Name *v)                                        \
+{                                                                                           \
+    if (v->length >= v->capacity)                                                           \
+    {                                                                                       \
         size_t new_cap = Z_GROWTH_FACTOR(v->capacity);                                      \
         if (vec_reserve_##Name(v, new_cap) != Z_OK) return NULL;                            \
     }                                                                                       \
     return &v->data[v->length++];                                                           \
 }                                                                                           \
                                                                                             \
-static inline int vec_push_##Name(vec_##Name *v, T value) {                                 \
+static inline int vec_push_##Name(vec_##Name *v, T value)                                   \
+{                                                                                           \
     T *slot = vec_push_slot_##Name(v);                                                      \
     if (!slot) return Z_ERR;                                                                \
     *slot = value;                                                                          \
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
-static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count) {          \
-    if (v->length + count > v->capacity) {                                                  \
+static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count)            \
+{                                                                                           \
+    if (v->length + count > v->capacity)                                                    \
+    {                                                                                       \
         size_t new_cap = v->capacity;                                                       \
         if (new_cap == 0) new_cap = Z_GROWTH_FACTOR(0);                                     \
         while (new_cap < v->length + count) new_cap = Z_GROWTH_FACTOR(new_cap);             \
@@ -161,65 +195,78 @@ static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count)
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
-static inline void vec_pop_##Name(vec_##Name *v) {                                          \
+static inline void vec_pop_##Name(vec_##Name *v)                                            \
+{                                                                                           \
     assert(v->length > 0 && "Popping empty vector");                                        \
     v->length--;                                                                            \
 }                                                                                           \
                                                                                             \
-static inline T vec_pop_get_##Name(vec_##Name *v) {                                         \
+static inline T vec_pop_get_##Name(vec_##Name *v)                                           \
+{                                                                                           \
     assert(v->length > 0 && "Vector is empty, cannot pop!");                                \
     return v->data[--v->length];                                                            \
 }                                                                                           \
-static inline void vec_shrink_to_fit_##Name(vec_##Name *v) {                                \
-    if (v->length == 0) {                                                                   \
+static inline void vec_shrink_to_fit_##Name(vec_##Name *v)                                  \
+{                                                                                           \
+    if (v->length == 0)                                                                     \
+    {                                                                                       \
         Z_VEC_FREE(v->data);                                                                \
-        *v = (vec_##Name){0};                                                               \
+        memset(v, 0, sizeof(vec_##Name));                                                   \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
-    T *new_data = Z_VEC_REALLOC(v->data, v->length * sizeof(T));                            \
+    T *new_data = (T*)Z_VEC_REALLOC(v->data, v->length * sizeof(T));                        \
     if (!new_data) return;                                                                  \
     v->data = new_data;                                                                     \
     v->capacity = v->length;                                                                \
 }                                                                                           \
                                                                                             \
-static inline T* vec_at_##Name(vec_##Name *v, size_t index) {                               \
+static inline T* vec_at_##Name(vec_##Name *v, size_t index)                                 \
+{                                                                                           \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                           \
                                                                                             \
-static inline T* vec_data_##Name(vec_##Name *v) {                                           \
+static inline T* vec_data_##Name(vec_##Name *v)                                             \
+{                                                                                           \
     return v->data;                                                                         \
 }                                                                                           \
                                                                                             \
-static inline T* vec_last_##Name(vec_##Name *v) {                                           \
+static inline T* vec_last_##Name(vec_##Name *v)                                             \
+{                                                                                           \
     return (v->length > 0) ? &v->data[v->length - 1] : NULL;                                \
 }                                                                                           \
                                                                                             \
-static inline void vec_remove_##Name(vec_##Name *v, size_t index) {                         \
+static inline void vec_remove_##Name(vec_##Name *v, size_t index)                           \
+{                                                                                           \
     if (index >= v->length) return;                                                         \
     memmove(&v->data[index], &v->data[index + 1],                                           \
             (v->length - index - 1) * sizeof(T));                                           \
     v->length--;                                                                            \
 }                                                                                           \
                                                                                             \
-static inline void vec_swap_remove_##Name(vec_##Name *v, size_t index) {                    \
+static inline void vec_swap_remove_##Name(vec_##Name *v, size_t index)                      \
+{                                                                                           \
     if (index >= v->length) return;                                                         \
     v->data[index] = v->data[--v->length];                                                  \
 }                                                                                           \
                                                                                             \
-static inline void vec_clear_##Name(vec_##Name *v) {                                        \
+static inline void vec_clear_##Name(vec_##Name *v)                                          \
+{                                                                                           \
     v->length = 0;                                                                          \
 }                                                                                           \
                                                                                             \
-static inline void vec_free_##Name(vec_##Name *v) {                                         \
+static inline void vec_free_##Name(vec_##Name *v)                                           \
+{                                                                                           \
     Z_VEC_FREE(v->data);                                                                    \
-    *v = (vec_##Name){0};                                                                   \
+    memset(v, 0, sizeof(vec_##Name));                                                       \
 }                                                                                           \
                                                                                             \
-static inline void vec_reverse_##Name(vec_##Name *v) {                                      \
+static inline void vec_reverse_##Name(vec_##Name *v)                                        \
+{                                                                                           \
     if (v->length < 2) return;                                                              \
     size_t i = 0, j = v->length - 1;                                                        \
-    while (i < j) {                                                                         \
+    while (i < j)                                                                           \
+    {                                                                                       \
         T temp = v->data[i];                                                                \
         v->data[i] = v->data[j];                                                            \
         v->data[j] = temp;                                                                  \
@@ -227,8 +274,10 @@ static inline void vec_reverse_##Name(vec_##Name *v) {                          
     }                                                                                       \
 }                                                                                           \
                                                                                             \
-static inline void vec_sort_##Name(vec_##Name *v, int (*compar)(const T *, const T *)) {    \
-    if (v->length > 1) {                                                                    \
+static inline void vec_sort_##Name(vec_##Name *v, int (*compar)(const T *, const T *))      \
+{                                                                                           \
+    if (v->length > 1)                                                                      \
+    {                                                                                       \
         int (*qsort_cmp)(const void *, const void *) =                                      \
             (int (*)(const void *, const void *))compar;                                    \
         qsort(v->data, v->length, sizeof(T), qsort_cmp);                                    \
@@ -236,7 +285,8 @@ static inline void vec_sort_##Name(vec_##Name *v, int (*compar)(const T *, const
 }                                                                                           \
                                                                                             \
 static inline T* vec_bsearch_##Name(vec_##Name *v, const T *key,                            \
-                                    int (*compar)(const T *, const T *)) {                  \
+                                    int (*compar)(const T *, const T *))                    \
+{                                                                                           \
     if (v->length == 0) return NULL;                                                        \
     int (*bs_cmp)(const void *, const void *) =                                             \
         (int (*)(const void *, const void *))compar;                                        \
@@ -244,40 +294,75 @@ static inline T* vec_bsearch_##Name(vec_##Name *v, const T *key,                
 }                                                                                           \
                                                                                             \
 static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,                        \
-                                        int (*compar)(const T *, const T *)) {              \
+                                        int (*compar)(const T *, const T *))                \
+{                                                                                           \
     size_t l = 0;                                                                           \
     size_t r = v->length;                                                                   \
-    while (l < r) {                                                                         \
+    while (l < r)                                                                           \
+    {                                                                                       \
         size_t mid = l + (r - l) / 2;                                                       \
-        if (compar(&v->data[mid], key) < 0) {                                               \
+        if (compar(&v->data[mid], key) < 0)                                                 \
+        {                                                                                   \
             l = mid + 1;                                                                    \
-        } else {                                                                            \
+        }                                                                                   \
+        else                                                                                \
+        {                                                                                   \
             r = mid;                                                                        \
         }                                                                                   \
     }                                                                                       \
     if (l == v->length) return NULL;                                                        \
     return &v->data[l];                                                                     \
-}
+}                                                                                           \
+                                                                                            \
+Z_VEC_CPP_REGISTER(T, Name)
 
-#define PUSH_ENTRY(T, Name)     vec_##Name*: vec_push_##Name,
-#define PUSH_SLOT_ENTRY(T, Name) vec_##Name*: vec_push_slot_##Name,
-#define EXTEND_ENTRY(T, Name)   vec_##Name*: vec_extend_##Name,
-#define RESERVE_ENTRY(T, Name)  vec_##Name*: vec_reserve_##Name,
-#define IS_EMPTY_ENTRY(T, Name) vec_##Name*: vec_is_empty_##Name,
-#define AT_ENTRY(T, Name)       vec_##Name*: vec_at_##Name,
-#define DATA_ENTRY(T, Name)     vec_##Name*: vec_data_##Name,
-#define LAST_ENTRY(T, Name)     vec_##Name*: vec_last_##Name,
-#define FREE_ENTRY(T, Name)     vec_##Name*: vec_free_##Name,
-#define POP_ENTRY(T, Name)      vec_##Name*: vec_pop_##Name,
-#define POP_GET_ENTRY(T, Name)  vec_##Name*: vec_pop_get_##Name,
-#define SHRINK_ENTRY(T, Name)   vec_##Name*: vec_shrink_to_fit_##Name,
-#define REMOVE_ENTRY(T, Name)   vec_##Name*: vec_remove_##Name,
-#define SWAP_REM_ENTRY(T, Name) vec_##Name*: vec_swap_remove_##Name,
-#define CLEAR_ENTRY(T, Name)    vec_##Name*: vec_clear_##Name,
-#define REVERSE_ENTRY(T, Name)  vec_##Name*: vec_reverse_##Name,
-#define SORT_ENTRY(T, Name)     vec_##Name*: vec_sort_##Name,
-#define BSEARCH_ENTRY(T, Name)  vec_##Name*: vec_bsearch_##Name,
-#define LOWER_BOUND_ENTRY(T, Name) vec_##Name*: vec_lower_bound_##Name,
+
+#ifdef __cplusplus
+#define Z_VEC_CPP_REGISTER(T, Name)                                                                         \
+} /* close extern C. */                                                                                     \
+namespace z_vec {                                                                                           \
+    template <> struct traits<T> {                                                                          \
+        using c_type = ::vec_##Name;                                                                        \
+        static inline void init(c_type &v) { v = ::vec_init_capacity_##Name(0); }                           \
+        static inline void init_cap(c_type &v, size_t c) { v = ::vec_init_capacity_##Name(c); }             \
+        static inline void free(c_type &v) { ::vec_free_##Name(&v); }                                       \
+        static inline void push(c_type &v, T val) { ::vec_push_##Name(&v, val); }                           \
+        static inline void extend(c_type &v, const T *arr, size_t n) { ::vec_extend_##Name(&v, arr, n); }   \
+        static inline void reserve(c_type& v, size_t n) { ::vec_reserve_##Name(&v, n); }                    \
+        static inline void pop(c_type &v) { ::vec_pop_##Name(&v); }                                         \
+        static inline T pop_get(c_type &v) { return ::vec_pop_get_##Name(&v); }                             \
+        static inline void remove(c_type &v, size_t i) { ::vec_remove_##Name(&v, i); }                      \
+        static inline void swap_remove(c_type &v, size_t i) { ::vec_swap_remove_##Name(&v, i); }            \
+        static inline void clear(c_type &v) { ::vec_clear_##Name(&v); }                                     \
+        static inline void shrink(c_type &v) { ::vec_shrink_to_fit_##Name(&v); }                            \
+        static inline void reverse(c_type &v) { ::vec_reverse_##Name(&v); }                                 \
+    };                                                                                                      \
+}                                                                                                           \
+extern "C" {
+#else
+#define Z_VEC_CPP_REGISTER(T, Name) /* No-op in C */
+#endif
+
+
+#define PUSH_ENTRY(T, Name)         vec_##Name*: vec_push_##Name,
+#define PUSH_SLOT_ENTRY(T, Name)    vec_##Name*: vec_push_slot_##Name,
+#define EXTEND_ENTRY(T, Name)       vec_##Name*: vec_extend_##Name,
+#define RESERVE_ENTRY(T, Name)      vec_##Name*: vec_reserve_##Name,
+#define IS_EMPTY_ENTRY(T, Name)     vec_##Name*: vec_is_empty_##Name,
+#define AT_ENTRY(T, Name)           vec_##Name*: vec_at_##Name,
+#define DATA_ENTRY(T, Name)         vec_##Name*: vec_data_##Name,
+#define LAST_ENTRY(T, Name)         vec_##Name*: vec_last_##Name,
+#define FREE_ENTRY(T, Name)         vec_##Name*: vec_free_##Name,
+#define POP_ENTRY(T, Name)          vec_##Name*: vec_pop_##Name,
+#define POP_GET_ENTRY(T, Name)      vec_##Name*: vec_pop_get_##Name,
+#define SHRINK_ENTRY(T, Name)       vec_##Name*: vec_shrink_to_fit_##Name,
+#define REMOVE_ENTRY(T, Name)       vec_##Name*: vec_remove_##Name,
+#define SWAP_REM_ENTRY(T, Name)     vec_##Name*: vec_swap_remove_##Name,
+#define CLEAR_ENTRY(T, Name)        vec_##Name*: vec_clear_##Name,
+#define REVERSE_ENTRY(T, Name)      vec_##Name*: vec_reverse_##Name,
+#define SORT_ENTRY(T, Name)         vec_##Name*: vec_sort_##Name,
+#define BSEARCH_ENTRY(T, Name)      vec_##Name*: vec_bsearch_##Name,
+#define LOWER_BOUND_ENTRY(T, Name)  vec_##Name*: vec_lower_bound_##Name,
 
 #if defined(__has_include) && __has_include("z_registry.h")
     #include "z_registry.h"
@@ -335,4 +420,127 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 #define vec_bsearch(v, k, c)      _Generic((v), Z_ALL_VECS(BSEARCH_ENTRY)     default: (void*)0)(v, k, c)
 #define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
 
-#endif
+#ifdef __cplusplus
+} // extern "C".
+
+// class wrapper.
+namespace z_vec 
+{
+    template <typename T>
+    class vector {
+        using Traits = traits<T>;
+        using CType = typename Traits::c_type;
+
+        CType inner;
+
+    public:
+        using value_type      = T;
+        using size_type       = size_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer         = T*;
+        using const_pointer   = const T*;
+        using iterator        = T*;
+        using const_iterator  = const T*;
+
+        // Constructors.
+        vector() { Traits::init(inner); }
+        
+        explicit vector(size_t capacity) { Traits::init_cap(inner, capacity); }
+
+        vector(std::initializer_list<T> init) {
+            Traits::init_cap(inner, init.size());
+            Traits::extend(inner, init.begin(), init.size());
+        }
+
+        // Copy constructor (deep copy).
+        vector(const vector &other) 
+        {
+            Traits::init_cap(inner, other.size());
+            Traits::extend(inner, other.data(), other.size());
+        }
+
+        // Move constructor (transfer ownership).
+        vector(vector &&other) noexcept 
+        {
+            inner = other.inner;
+            Traits::init(other.inner);
+        }
+
+        // Destructor.
+        ~vector() { Traits::free(inner); }
+
+        // Assignment operators.
+        vector& operator=(const vector &other) 
+        {
+            if (this != &other) 
+            {
+                Traits::free(inner);
+                Traits::init_cap(inner, other.size());
+                Traits::extend(inner, other.data(), other.size());
+            }
+            return *this;
+        }
+
+        vector& operator=(vector &&other) noexcept 
+        {
+            if (this != &other) 
+            {
+                Traits::free(inner);
+                inner = other.inner;
+                Traits::init(other.inner);
+            }
+            return *this;
+        }
+
+        // Accessors.
+        T* data()             { return inner.data; }
+        const T* data() const { return inner.data; }
+        
+        size_t size() const     { return inner.length; }
+        size_t capacity() const { return inner.capacity; }
+        bool empty() const      { return inner.length == 0; }
+
+        T& operator[](size_t idx)             { return inner.data[idx]; }
+        const T& operator[](size_t idx) const { return inner.data[idx]; }
+
+        T& at(size_t idx) 
+        {
+            if (idx >= size()) throw std::out_of_range("vector::at");
+            return inner.data[idx];
+        }
+
+        const T& at(size_t idx) const 
+        {
+            if (idx >= size()) throw std::out_of_range("vector::at");
+            return inner.data[idx];
+        }
+
+        T& front()             { return inner.data[0]; }
+        const T& front() const { return inner.data[0]; }
+
+        T& back()             { return inner.data[inner.length - 1]; }
+        const T& back() const { return inner.data[inner.length - 1]; }
+
+        // Modifiers.
+        void push_back(const T &val) { Traits::push(inner, val); }
+        void pop_back()              { Traits::pop(inner); }
+        
+        void clear()   { Traits::clear(inner); }
+        void reserve(size_t cap) { Traits::reserve(inner, cap); }
+
+        void shrink_to_fit() { Traits::shrink(inner); }
+        void reverse()       { Traits::reverse(inner); }
+
+        void remove(size_t idx)      { Traits::remove(inner, idx); }
+        void swap_remove(size_t idx) { Traits::swap_remove(inner, idx); }
+
+        // Iterators.
+        iterator begin() { return inner.data; }
+        iterator end()   { return inner.data + inner.length; }
+        const_iterator begin() const { return inner.data; }
+        const_iterator end() const   { return inner.data + inner.length; }
+    };
+}
+#endif // __cplusplus
+
+#endif // ZVEC_H
