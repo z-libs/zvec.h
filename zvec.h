@@ -136,7 +136,7 @@ static inline int vec_is_empty_##Name(vec_##Name *v) {                          
                                                                                             \
 static inline T* vec_push_slot_##Name(vec_##Name *v) {                                      \
     if (v->length >= v->capacity) {                                                         \
-        size_t new_cap = v->capacity == 0 ? 8 : v->capacity * 2;                            \
+        size_t new_cap = Z_GROWTH_FACTOR(v->capacity);                                      \
         if (vec_reserve_##Name(v, new_cap) != Z_OK) return NULL;                            \
     }                                                                                       \
     return &v->data[v->length++];                                                           \
@@ -151,8 +151,9 @@ static inline int vec_push_##Name(vec_##Name *v, T value) {                     
                                                                                             \
 static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count) {          \
     if (v->length + count > v->capacity) {                                                  \
-        size_t new_cap = v->capacity == 0 ? 8 : v->capacity;                                \
-        while (new_cap < v->length + count) new_cap *= 2;                                   \
+        size_t new_cap = v->capacity;                                                       \
+        if (new_cap == 0) new_cap = Z_GROWTH_FACTOR(0);                                     \
+        while (new_cap < v->length + count) new_cap = Z_GROWTH_FACTOR(new_cap);             \
         if (vec_reserve_##Name(v, new_cap) != Z_OK) return Z_ERR;                           \
     }                                                                                       \
     memcpy(v->data + v->length, items, count * sizeof(T));                                  \
