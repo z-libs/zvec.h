@@ -1,3 +1,4 @@
+
 #ifndef ZVEC_H
 #define ZVEC_H
 
@@ -16,19 +17,146 @@
 
 namespace z_vec 
 {
-    // Traits template to map C++ types to their C implementation.
+    /* Traits struct. */
+    // The traits struct connects the C++ wrapper to the generated C functions.
     template <typename T>
     struct traits 
     {
-        // If you see an error here, it means you haven't generated the implementation 
-        // for type T using Z_VEC_GENERATE_IMPL(T, Name) or registered it.
-        static_assert(sizeof(T) == 0, "No zvec implementation registered for this type.");
+        static_assert(sizeof(T) == 0, "No zvec implementation registered for this type (via DEFINE_VEC_TYPE).");
+    };
+
+    /* Vector implementation */
+    template <typename T>
+    class vector 
+    {
+        using Traits = traits<T>;
+        using CType = typename Traits::c_type;
+
+        CType inner;
+
+    public:
+        using value_type      = T;
+        using size_type       = size_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer         = T*;
+        using const_pointer   = const T*;
+        using iterator        = T*;
+        using const_iterator  = const T*;
+
+        /* Constructors and destructor (RAII). */
+
+        // Default constructor.
+        vector() { Traits::init(inner); }
+        
+        // Constructs with initial capacity.
+        explicit vector(size_t capacity) { Traits::init_cap(inner, capacity); }
+
+        // Constructs from an initializer list.
+        vector(std::initializer_list<T> init) 
+        {
+            Traits::init_cap(inner, init.size());
+            Traits::extend(inner, init.begin(), init.size());
+        }
+
+        // Copy constructor (deep copy).
+        vector(const vector &other) 
+        {
+            Traits::init_cap(inner, other.size());
+            Traits::extend(inner, other.data(), other.size());
+        }
+
+        // Move constructor (transfer ownership).
+        vector(vector &&other) noexcept 
+        {
+            inner = other.inner;
+            Traits::init(other.inner);
+        }
+
+        // Destructor (frees memory).
+        ~vector() { Traits::free(inner); }
+
+        // Copy assignment.
+        vector& operator=(const vector &other) 
+        {
+            if (this != &other) 
+            {
+                Traits::free(inner);
+                Traits::init_cap(inner, other.size());
+                Traits::extend(inner, other.data(), other.size());
+            }
+            return *this;
+        }
+
+        // Move assignment.
+        vector& operator=(vector &&other) noexcept 
+        {
+            if (this != &other) 
+            {
+                Traits::free(inner);
+                inner = other.inner;
+                Traits::init(other.inner);
+            }
+            return *this;
+        }
+
+        /* Accessors */
+
+        T* data()             { return inner.data; }
+        const T* data() const { return inner.data; }
+        
+        size_t size() const     { return inner.length; }
+        size_t capacity() const { return inner.capacity; }
+        bool empty() const      { return inner.length == 0; }
+
+        // Unchecked access.
+        T& operator[](size_t idx)             { return inner.data[idx]; }
+        const T& operator[](size_t idx) const { return inner.data[idx]; }
+
+        // Checked access (throws std::out_of_range).
+        T& at(size_t idx) 
+        {
+            if (idx >= size()) throw std::out_of_range("vector::at");
+            return inner.data[idx];
+        }
+
+        const T& at(size_t idx) const 
+        {
+            if (idx >= size()) throw std::out_of_range("vector::at");
+            return inner.data[idx];
+        }
+
+        T& front()             { return inner.data[0]; }
+        const T& front() const { return inner.data[0]; }
+
+        T& back()             { return inner.data[inner.length - 1]; }
+        const T& back() const { return inner.data[inner.length - 1]; }
+
+        /* Modifiers */
+
+        void push_back(const T &val) { Traits::push(inner, val); }
+        void pop_back()              { Traits::pop(inner); }
+        
+        void clear()   { Traits::clear(inner); }
+        void reserve(size_t cap) { Traits::reserve(inner, cap); }
+
+        void shrink_to_fit() { Traits::shrink(inner); }
+        void reverse()       { Traits::reverse(inner); }
+
+        void remove(size_t idx)      { Traits::remove(inner, idx); }
+        void swap_remove(size_t idx) { Traits::swap_remove(inner, idx); }
+
+        /* Iterators */
+
+        iterator begin() { return inner.data; }
+        iterator end()   { return inner.data + inner.length; }
+        const_iterator begin() const { return inner.data; }
+        const_iterator end() const   { return inner.data + inner.length; }
     };
 }
 extern "C" {
 #endif
 
-/* Allocator overrides. */
+/* C Implementation */
 
 #ifndef Z_VEC_MALLOC
     #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
@@ -204,7 +332,7 @@ static inline void vec_swap_remove_##Name(vec_##Name *v, size_t index)          
     v->data[index] = v->data[--v->length];                                                  \
 }                                                                                           \
                                                                                             \
-/* Sets the length to 0, logically clearing the vector. */                                  \
+/* Sets the length to 0, logically clearing the vector. */                                   \
 static inline void vec_clear_##Name(vec_##Name *v)                                          \
 {                                                                                           \
     v->length = 0;                                                                          \
@@ -272,40 +400,9 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
     }                                                                                       \
     if (l == v->length) return NULL;                                                        \
     return &v->data[l];                                                                     \
-}                                                                                           \
-/* Registers the type traits for C++ support. */                                            \
-Z_VEC_CPP_REGISTER(T, Name)
+}
 
-
-/* C++ helper macro. */
-#ifdef __cplusplus
-#define Z_VEC_CPP_REGISTER(T, Name)                                                                         \
-} /* close extern C. */                                                                                      \
-namespace z_vec {                                                                                           \
-    template <> struct traits<T> {                                                                          \
-        using c_type = ::vec_##Name;                                                                        \
-        static inline void init(c_type &v) { v = ::vec_init_capacity_##Name(0); }                           \
-        static inline void init_cap(c_type &v, size_t c) { v = ::vec_init_capacity_##Name(c); }             \
-        static inline void free(c_type &v) { ::vec_free_##Name(&v); }                                       \
-        static inline void push(c_type &v, T val) { ::vec_push_##Name(&v, val); }                           \
-        static inline void extend(c_type &v, const T *arr, size_t n) { ::vec_extend_##Name(&v, arr, n); }   \
-        static inline void reserve(c_type& v, size_t n) { ::vec_reserve_##Name(&v, n); }                    \
-        static inline void pop(c_type &v) { ::vec_pop_##Name(&v); }                                         \
-        static inline T pop_get(c_type &v) { return ::vec_pop_get_##Name(&v); }                             \
-        static inline void remove(c_type &v, size_t i) { ::vec_remove_##Name(&v, i); }                      \
-        static inline void swap_remove(c_type &v, size_t i) { ::vec_swap_remove_##Name(&v, i); }            \
-        static inline void clear(c_type &v) { ::vec_clear_##Name(&v); }                                     \
-        static inline void shrink(c_type &v) { ::vec_shrink_to_fit_##Name(&v); }                            \
-        static inline void reverse(c_type &v) { ::vec_reverse_##Name(&v); }                                 \
-    };                                                                                                      \
-}                                                                                                           \
-extern "C" {
-#else
-#define Z_VEC_CPP_REGISTER(T, Name) /* No-op in C. */
-#endif
-
-
-/* X-Macro entries for generic dispatch. */
+/* C generic dispatch entries */
 #define PUSH_ENTRY(T, Name)         vec_##Name*: vec_push_##Name,
 #define PUSH_SLOT_ENTRY(T, Name)    vec_##Name*: vec_push_slot_##Name,
 #define EXTEND_ENTRY(T, Name)       vec_##Name*: vec_extend_##Name,
@@ -326,7 +423,7 @@ extern "C" {
 #define BSEARCH_ENTRY(T, Name)      vec_##Name*: vec_bsearch_##Name,
 #define LOWER_BOUND_ENTRY(T, Name)  vec_##Name*: vec_lower_bound_##Name,
 
-/* Registry Inclusion (Auto-generated by zscanner.py). */
+/* Registry & type generation */
 #if defined(__has_include) && __has_include("z_registry.h")
     #include "z_registry.h"
 #endif
@@ -339,19 +436,15 @@ extern "C" {
     #define REGISTER_TYPES(X)
 #endif
 
+// Combine all sources of types.
 #define Z_ALL_VECS(X) \
     Z_AUTOGEN_VECS(X) \
     REGISTER_TYPES(X)
 
-/* Expand implementations for all registered types. */
+// Execute the generator for all registered types.
 Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 
-/* Auto-cleanup (GCC/Clang extension). */
-#if Z_HAS_CLEANUP
-    #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
-#endif
-
-/* Public API Macros (C11 Generics). */
+/* C API Macros (using _Generic) */
 
 // Helper to create a vector from literal args.
 #define vec_from(Name, ...) \
@@ -363,16 +456,10 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 // Initializes a vector with pre-allocated capacity.
 #define vec_init_with_cap(Name, cap) vec_init_capacity_##Name(cap)
 
-// Iterates over the vector. `iter` will be a pointer to each element.
-// usage: vec_foreach(&v, ptr) { printf("%d", *ptr); }
-#define vec_foreach(v, iter) \
-    for (size_t VEC_NAME(_i_, __LINE__) = 0; \
-         VEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[VEC_NAME(_i_, __LINE__)]); \
-         ++VEC_NAME(_i_, __LINE__))
-
-// Macro helpers for name concatenation.
-#define VEC_CAT(a, b) a##b
-#define VEC_NAME(a, b) VEC_CAT(a, b)
+// Auto-cleanup extension (GCC/Clang).
+#if Z_HAS_CLEANUP
+    #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
+#endif
 
 // Generic Function Calls
 #define vec_push(v, val)          _Generic((v), Z_ALL_VECS(PUSH_ENTRY)      default: 0)       (v, val)
@@ -395,132 +482,46 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 #define vec_bsearch(v, k, c)      _Generic((v), Z_ALL_VECS(BSEARCH_ENTRY)     default: (void*)0)(v, k, c)
 #define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
 
+// Helper Macros.
+#define VEC_CAT(a, b) a##b
+#define VEC_NAME(a, b) VEC_CAT(a, b)
+
+// Iteration helper (C only).
+#define vec_foreach(v, iter) \
+    for (size_t VEC_NAME(_i_, __LINE__) = 0; \
+         VEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[VEC_NAME(_i_, __LINE__)]); \
+         ++VEC_NAME(_i_, __LINE__))
+
+
+/* C++ Trait specialization (Executed after C code is defined) */
 #ifdef __cplusplus
 } // extern "C"
 
-/* C++ Wrapper Class */
-namespace z_vec 
+namespace z_vec
 {
-    template <typename T>
-    class vector {
-        using Traits = traits<T>;
-        using CType = typename Traits::c_type;
+    // Macro to specialize the traits for generated types.
+    #define ZVEC_CPP_TRAITS(T, Name)                                                                            \
+        template<> struct traits<T>                                                                             \
+        {                                                                                                       \
+            using c_type = ::vec_##Name;                                                                        \
+            static inline void init(c_type& v) { v = ::vec_init_capacity_##Name(0); }                           \
+            static inline void init_cap(c_type& v, size_t c) { v = ::vec_init_capacity_##Name(c); }             \
+            static inline void free(c_type& v) { ::vec_free_##Name(&v); }                                       \
+            static inline void push(c_type& v, T val) { ::vec_push_##Name(&v, val); }                           \
+            static inline void extend(c_type& v, const T* arr, size_t n) { ::vec_extend_##Name(&v, arr, n); }   \
+            static inline void reserve(c_type& v, size_t n) { ::vec_reserve_##Name(&v, n); }                    \
+            static inline void pop(c_type& v) { ::vec_pop_##Name(&v); }                                         \
+            static inline T pop_get(c_type& v) { return ::vec_pop_get_##Name(&v); }                             \
+            static inline void remove(c_type& v, size_t i) { ::vec_remove_##Name(&v, i); }                      \
+            static inline void swap_remove(c_type& v, size_t i) { ::vec_swap_remove_##Name(&v, i); }            \
+            static inline void clear(c_type& v) { ::vec_clear_##Name(&v); }                                     \
+            static inline void shrink(c_type& v) { ::vec_shrink_to_fit_##Name(&v); }                            \
+            static inline void reverse(c_type& v) { ::vec_reverse_##Name(&v); }                                 \
+        };
 
-        CType inner;
-
-    public:
-        using value_type      = T;
-        using size_type       = size_t;
-        using difference_type = std::ptrdiff_t;
-        using pointer         = T*;
-        using const_pointer   = const T*;
-        using iterator        = T*;
-        using const_iterator  = const T*;
-
-        // Default constructor.
-        vector() { Traits::init(inner); }
-        
-        // Constructs with initial capacity.
-        explicit vector(size_t capacity) { Traits::init_cap(inner, capacity); }
-
-        // Constructs from an initializer list.
-        vector(std::initializer_list<T> init) {
-            Traits::init_cap(inner, init.size());
-            Traits::extend(inner, init.begin(), init.size());
-        }
-
-        // Copy constructor (Deep Copy).
-        vector(const vector &other) 
-        {
-            Traits::init_cap(inner, other.size());
-            Traits::extend(inner, other.data(), other.size());
-        }
-
-        // Move constructor (Transfer Ownership).
-        vector(vector &&other) noexcept 
-        {
-            inner = other.inner;
-            Traits::init(other.inner);
-        }
-
-        // Destructor (Frees memory).
-        ~vector() { Traits::free(inner); }
-
-        // Copy Assignment.
-        vector& operator=(const vector &other) 
-        {
-            if (this != &other) 
-            {
-                Traits::free(inner);
-                Traits::init_cap(inner, other.size());
-                Traits::extend(inner, other.data(), other.size());
-            }
-            return *this;
-        }
-
-        // Move Assignment.
-        vector& operator=(vector &&other) noexcept 
-        {
-            if (this != &other) 
-            {
-                Traits::free(inner);
-                inner = other.inner;
-                Traits::init(other.inner);
-            }
-            return *this;
-        }
-
-        /* Accessors */
-        T* data()             { return inner.data; }
-        const T* data() const { return inner.data; }
-        
-        size_t size() const     { return inner.length; }
-        size_t capacity() const { return inner.capacity; }
-        bool empty() const      { return inner.length == 0; }
-
-        // Unchecked access.
-        T& operator[](size_t idx)             { return inner.data[idx]; }
-        const T& operator[](size_t idx) const { return inner.data[idx]; }
-
-        // Checked access (throws std::out_of_range).
-        T& at(size_t idx) 
-        {
-            if (idx >= size()) throw std::out_of_range("vector::at");
-            return inner.data[idx];
-        }
-
-        const T& at(size_t idx) const 
-        {
-            if (idx >= size()) throw std::out_of_range("vector::at");
-            return inner.data[idx];
-        }
-
-        T& front()             { return inner.data[0]; }
-        const T& front() const { return inner.data[0]; }
-
-        T& back()             { return inner.data[inner.length - 1]; }
-        const T& back() const { return inner.data[inner.length - 1]; }
-
-        /* Modifiers */
-        void push_back(const T &val) { Traits::push(inner, val); }
-        void pop_back()              { Traits::pop(inner); }
-        
-        void clear()   { Traits::clear(inner); }
-        void reserve(size_t cap) { Traits::reserve(inner, cap); }
-
-        void shrink_to_fit() { Traits::shrink(inner); }
-        void reverse()       { Traits::reverse(inner); }
-
-        void remove(size_t idx)      { Traits::remove(inner, idx); }
-        void swap_remove(size_t idx) { Traits::swap_remove(inner, idx); }
-
-        /* Iterators (enables range-based for loops). */
-        iterator begin() { return inner.data; }
-        iterator end()   { return inner.data + inner.length; }
-        const_iterator begin() const { return inner.data; }
-        const_iterator end() const   { return inner.data + inner.length; }
-    };
-}
+    // Execute the trait specialization for all registered types.
+    Z_ALL_VECS(ZVEC_CPP_TRAITS)
+} // namespace z_vec
 #endif // __cplusplus
 
 #endif // ZVEC_H
