@@ -2,31 +2,31 @@
 
 `zvec.h` provides dynamic arrays (vectors) for C projects. Unlike typical C vector implementations that rely on `void*` casting and lose type safety, `zvec.h` uses C11 `_Generic` selection and X-Macros to generate fully typed, type-safe implementations for your specific data structures.
 
+It also includes a robust **C++11 wrapper**, allowing you to use it as a lightweight, drop-in vector class (`z_vec::vector`) in mixed codebases while sharing the same underlying C implementation.
+
 ## Features
 
 * **Type Safety**: Compiler errors if you try to push a `float` into a `vec_int`.
 * **Native Performance**: Data is stored in contiguous arrays of the actual type (no boxing or pointer indirection).
+* **C++ Support**: Includes a full C++ class wrapper with RAII, iterators, and `std::vector`-like API.
 * **Zero Boilerplate**: Use the **Z-Scanner** tool to automatically generate type registrations.
 * **Header Only**: No linking required.
 * **Memory Agnostic**: Supports custom allocators (Arenas, Pools, Debuggers).
 * **Zero Dependencies**: Only standard C headers used.
 
-## Quick Start (Automated)
+## Installation
 
-The easiest way to use `zvec.h` is with the **Z-Scanner** tool, which scans your code and handles the boilerplate for you.
+`zvec.h` works best when you use the provided scanner script to manage type registrations, though it can be used manually.
 
-### 1. Setup
+1.  Copy `zvec.h` (and `zcommon.h` if separated) to your project's include folder.
+2.  Add the `z-core` tools (optional but recommended):
+    ```bash
+    git submodule add [https://github.com/z-libs/z-core.git](https://github.com/z-libs/z-core.git) z-core
+    ```
 
-Add `zvec.h` and the `z-core` tools to your project:
+## Usage: C
 
-```bash
-# Copy zvec.h to your root or include folder.
-git submodule add https://github.com/z-libs/z-core.git z-core
-```
-
-### 2. Write Code
-
-You don't need a separate registry file. Just define the types you need right where you use them (or in your own headers).
+For C projects, you define the vector types you need using a macro that the scanner detects.
 
 ```c
 #include <stdio.h>
@@ -42,31 +42,67 @@ DEFINE_VEC_TYPE(Point, Point)
 
 int main(void)
 {
+    // Initialize (Standard C style).
     vec_Int nums = vec_init(Int);
     vec_push(&nums, 42);
 
+    // Initialize Struct Vector.
     vec_Point path = vec_init(Point);
     vec_push(&path, ((Point){1.0f, 2.0f}));
 
+    // Access elements safely (returns T*).
     printf("First number: %d\n", *vec_at(&nums, 0));
     
+    // Cleanup.
     vec_free(&nums);
     vec_free(&path);
     return 0;
 }
 ```
 
-### 3. Build
+## Usage: C++
 
-Run the scanner before compiling. It will create a header that `zvec.h` automatically detects.
+The library detects C++ compilers automatically. The C++ wrapper lives in the **`z_vec`** namespace and wraps the underlying C implementation transparently.
 
-```bash
-# Scan your source folder (for example, src/ or .) and output to 'z_registry.h'.
-python3 z-core/zscanner.py . z_registry.h
+```cpp
+#include <iostream>
+#include "zvec.h"
 
-# Compile (Include the folder where z_registry.h lives, or just move it).
-gcc main.c -I. -o game
+struct Point { float x, y; };
+
+// Request types (scanner sees this even in .cpp files).
+DEFINE_VEC_TYPE(int, Int)
+DEFINE_VEC_TYPE(Point, Point)
+
+int main()
+{
+    // RAII handles memory automatically.
+    z_vec::vector<int> nums = {1, 2, 3};
+
+    // Standard push_back API.
+    nums.push_back(42);
+
+    // Range-based for loops supported.
+    for(int n : nums) {
+        std::cout << n << " ";
+    }
+
+    // Bounds checking access.
+    try {
+        nums.at(99) = 10;
+    } catch (const std::out_of_range& e) {
+        std::cerr << "Error: " << e.what() << "\n";
+    }
+
+    return 0;
+}
 ```
+
+## Compilation Guide
+
+Since `zvec.h` relies on code generation for its type safety, here you have the guide if you use the scanner.
+
+**[Read the Compilation Guide](examples/README.md)** for detailed instructions on how to use `zscanner.py`.
 
 ## Manual Setup
 
@@ -91,7 +127,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 
 * Include `"my_vectors.h"` instead of `"zvec.h"` in your C files.
 
-## API Reference
+## API Reference (C)
 
 `zvec.h` uses C11 `_Generic` to automatically select the correct function implementation based on the vector type you pass.
 
@@ -138,7 +174,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 | `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
 
-## Extensions (Experimental)
+### Extensions (Experimental)
 
 If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free vectors when they go out of scope.
 
@@ -157,6 +193,48 @@ void process_data()
 ```
 
 > **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
+
+## API Reference (C++)
+
+The C++ wrapper lives in the **`z_vec`** namespace. It strictly adheres to RAII principles and delegates all logic to the underlying C implementation.
+
+### `class z_vec::vector<T>`
+
+**Constructors & Management**
+
+| Method | Description |
+| :--- | :--- |
+| `vector()` | Default constructor (empty). |
+| `vector(size_t cap)` | Constructs with initial capacity reserved. |
+| `vector({1, 2, ...})` | Constructs from an initializer list. |
+| `~vector()` | Destructor. Automatically calls `vec_free`. |
+| `operator=` | Copy and Move assignment operators. |
+
+**Access & Iterators**
+
+| Method | Description |
+| :--- | :--- |
+| `data()` | Returns `T*` (mutable) or `const T*`. |
+| `size()` | Returns current number of elements. |
+| `capacity()` | Returns current allocated capacity. |
+| `empty()` | Returns `true` if size is 0. |
+| `operator[]` | Unchecked access to element at index. |
+| `at(index)` | Bounds-checked access. Throws `std::out_of_range`. |
+| `front()`, `back()` | Access first/last element. |
+| `begin()`, `end()` | Standard iterators (pointers) compatible with STL algorithms. |
+
+**Modification**
+
+| Method | Description |
+| :--- | :--- |
+| `push_back(val)` | Appends value to the end. |
+| `pop_back()` | Removes the last element. |
+| `reserve(n)` | Reserves capacity for at least `n` items. |
+| `clear()` | Sets size to 0 (capacity remains). |
+| `shrink_to_fit()` | Reduces capacity to match size. |
+| `reverse()` | Reverses elements in-place. |
+| `remove(index)` | Removes element at index (O(N) shift). |
+| `swap_remove(index)` | Removes element at index by swapping with last (O(1)). |
 
 ## Memory Management
 
