@@ -131,7 +131,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 
 `zvec.h` uses C11 `_Generic` to automatically select the correct function implementation based on the vector type you pass.
 
-### Initialization & Management
+**Initialization & Management**
 
 | Macro | Description |
 | :--- | :--- |
@@ -143,7 +143,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 | `vec_reserve(v, n)` | Ensures the vector has capacity for at least `n` elements total. |
 | `vec_shrink_to_fit(v)` | Reallocates the internal memory to match exactly the current length. |
 
-### Data Access
+**Data Access**
 
 | Macro | Description |
 | :--- | :--- |
@@ -152,7 +152,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 | `vec_data(v)` | Returns the raw underlying array pointer (`T*`). |
 | `vec_is_empty(v)` | Returns `1` (true) if the vector length is 0, otherwise `0`. |
 
-### Modification
+**Modification**
 
 | Macro | Description |
 | :--- | :--- |
@@ -165,7 +165,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 | `vec_swap_remove(v, index)` | Removes the element at `index` by swapping it with the last element (O(1), order not preserved). |
 | `vec_reverse(v)` | Reverses the elements of the vector in-place. |
 
-### Algorithms & Iteration
+**Algorithms & Iteration**
 
 | Macro | Description |
 | :--- | :--- |
@@ -174,7 +174,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 | `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
 
-### Extensions (Experimental)
+**Extensions (Experimental)**
 
 If you are using a compiler that supports `__attribute__((cleanup))` (like GCC or Clang), you can use the **Auto-Cleanup** extension to automatically free vectors when they go out of scope.
 
