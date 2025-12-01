@@ -78,6 +78,7 @@
 #include <assert.h>
 #include <stdlib.h> 
 
+/* C++ interop preamble. */
 #ifdef __cplusplus
 #include <initializer_list>
 #include <stdexcept>
@@ -87,17 +88,19 @@
 
 namespace z_vec 
 {
+    // Traits template to map C++ types to their C implementation.
     template <typename T>
     struct traits 
     {
-        // If you see an error here, it means
-        // you haven't generated the implementation for type T.
+        // If you see an error here, it means you haven't generated the implementation 
+        // for type T using Z_VEC_GENERATE_IMPL(T, Name) or registered it.
         static_assert(sizeof(T) == 0, "No zvec implementation registered for this type.");
     };
 }
-
 extern "C" {
 #endif
+
+/* Allocator overrides. */
 
 #ifndef Z_VEC_MALLOC
     #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
@@ -115,16 +118,24 @@ extern "C" {
     #define Z_VEC_FREE(p)         Z_FREE(p)
 #endif
 
+/* * The generator macro.
+ * Expands to a complete implementation of a dynamic array for type T.
+ * T    : The element type (e.g., int, float, Point).
+ * Name : The suffix for the generated functions (for example, Int -> vec_push_Int).
+ *        Name must be one word only.
+ */
 #define Z_VEC_GENERATE_IMPL(T, Name)                                                        \
                                                                                             \
 typedef T zvec_T_##Name;                                                                    \
                                                                                             \
+/* The main vector struct for this type. */                                                 \
 typedef struct {                                                                            \
     T *data;                                                                                \
     size_t length;                                                                          \
     size_t capacity;                                                                        \
 } vec_##Name;                                                                               \
                                                                                             \
+/* Initializes a vector with a specific initial capacity. */                                \
 static inline vec_##Name vec_init_capacity_##Name(size_t cap)                               \
 {                                                                                           \
     vec_##Name v;                                                                           \
@@ -137,6 +148,7 @@ static inline vec_##Name vec_init_capacity_##Name(size_t cap)                   
     return v;                                                                               \
 }                                                                                           \
                                                                                             \
+/* Creates a new vector by copying elements from a raw array. */                            \
 static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count)                  \
 {                                                                                           \
     vec_##Name v = vec_init_capacity_##Name(count);                                         \
@@ -148,6 +160,7 @@ static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count)      
     return v;                                                                               \
 }                                                                                           \
                                                                                             \
+/* Ensures the vector has space for at least `new_cap` elements. */                         \
 static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap)                         \
 {                                                                                           \
     if (new_cap <= v->capacity) return Z_OK;                                                \
@@ -158,11 +171,13 @@ static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap)             
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
+/* Returns 1 if the vector is empty, 0 otherwise. */                                        \
 static inline int vec_is_empty_##Name(vec_##Name *v)                                        \
 {                                                                                           \
     return v->length == 0;                                                                  \
 }                                                                                           \
                                                                                             \
+/* Reserves space for one more item and returns a pointer to the new slot. */               \
 static inline T* vec_push_slot_##Name(vec_##Name *v)                                        \
 {                                                                                           \
     if (v->length >= v->capacity)                                                           \
@@ -173,6 +188,7 @@ static inline T* vec_push_slot_##Name(vec_##Name *v)                            
     return &v->data[v->length++];                                                           \
 }                                                                                           \
                                                                                             \
+/* Appends a value to the end of the vector. */                                             \
 static inline int vec_push_##Name(vec_##Name *v, T value)                                   \
 {                                                                                           \
     T *slot = vec_push_slot_##Name(v);                                                      \
@@ -181,6 +197,7 @@ static inline int vec_push_##Name(vec_##Name *v, T value)                       
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
+/* Appends multiple items from a raw array to the vector. */                                \
 static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count)            \
 {                                                                                           \
     if (v->length + count > v->capacity)                                                    \
@@ -195,17 +212,21 @@ static inline int vec_extend_##Name(vec_##Name *v, const T *items, size_t count)
     return Z_OK;                                                                            \
 }                                                                                           \
                                                                                             \
+/* Removes the last element (decrements length). Asserts if empty. */                       \
 static inline void vec_pop_##Name(vec_##Name *v)                                            \
 {                                                                                           \
     assert(v->length > 0 && "Popping empty vector");                                        \
     v->length--;                                                                            \
 }                                                                                           \
                                                                                             \
+/* Removes and returns the last element. Asserts if empty. */                               \
 static inline T vec_pop_get_##Name(vec_##Name *v)                                           \
 {                                                                                           \
     assert(v->length > 0 && "Vector is empty, cannot pop!");                                \
     return v->data[--v->length];                                                            \
 }                                                                                           \
+                                                                                            \
+/* Reduces capacity to match the current length to save memory. */                          \
 static inline void vec_shrink_to_fit_##Name(vec_##Name *v)                                  \
 {                                                                                           \
     if (v->length == 0)                                                                     \
@@ -221,21 +242,25 @@ static inline void vec_shrink_to_fit_##Name(vec_##Name *v)                      
     v->capacity = v->length;                                                                \
 }                                                                                           \
                                                                                             \
+/* Returns a pointer to the element at index, or NULL if out of bounds. */                  \
 static inline T* vec_at_##Name(vec_##Name *v, size_t index)                                 \
 {                                                                                           \
     return (index < v->length) ? &v->data[index] : NULL;                                    \
 }                                                                                           \
                                                                                             \
+/* Returns the raw data pointer. */                                                         \
 static inline T* vec_data_##Name(vec_##Name *v)                                             \
 {                                                                                           \
     return v->data;                                                                         \
 }                                                                                           \
                                                                                             \
+/* Returns a pointer to the last element, or NULL if empty. */                              \
 static inline T* vec_last_##Name(vec_##Name *v)                                             \
 {                                                                                           \
     return (v->length > 0) ? &v->data[v->length - 1] : NULL;                                \
 }                                                                                           \
                                                                                             \
+/* Removes element at index, shifting subsequent elements left. O(N). */                    \
 static inline void vec_remove_##Name(vec_##Name *v, size_t index)                           \
 {                                                                                           \
     if (index >= v->length) return;                                                         \
@@ -244,23 +269,27 @@ static inline void vec_remove_##Name(vec_##Name *v, size_t index)               
     v->length--;                                                                            \
 }                                                                                           \
                                                                                             \
+/* Removes element at index by swapping with the last element. O(1). */                     \
 static inline void vec_swap_remove_##Name(vec_##Name *v, size_t index)                      \
 {                                                                                           \
     if (index >= v->length) return;                                                         \
     v->data[index] = v->data[--v->length];                                                  \
 }                                                                                           \
                                                                                             \
+/* Sets the length to 0, logically clearing the vector. */                                  \
 static inline void vec_clear_##Name(vec_##Name *v)                                          \
 {                                                                                           \
     v->length = 0;                                                                          \
 }                                                                                           \
                                                                                             \
+/* Frees the underlying memory and resets the struct to zero. */                            \
 static inline void vec_free_##Name(vec_##Name *v)                                           \
 {                                                                                           \
     Z_VEC_FREE(v->data);                                                                    \
     memset(v, 0, sizeof(vec_##Name));                                                       \
 }                                                                                           \
                                                                                             \
+/* Reverses the order of elements in place. */                                              \
 static inline void vec_reverse_##Name(vec_##Name *v)                                        \
 {                                                                                           \
     if (v->length < 2) return;                                                              \
@@ -274,6 +303,7 @@ static inline void vec_reverse_##Name(vec_##Name *v)                            
     }                                                                                       \
 }                                                                                           \
                                                                                             \
+/* Sorts the vector using qsort and the provided comparison function. */                    \
 static inline void vec_sort_##Name(vec_##Name *v, int (*compar)(const T *, const T *))      \
 {                                                                                           \
     if (v->length > 1)                                                                      \
@@ -284,6 +314,7 @@ static inline void vec_sort_##Name(vec_##Name *v, int (*compar)(const T *, const
     }                                                                                       \
 }                                                                                           \
                                                                                             \
+/* Performs a binary search for a key. Returns pointer to item or NULL. */                  \
 static inline T* vec_bsearch_##Name(vec_##Name *v, const T *key,                            \
                                     int (*compar)(const T *, const T *))                    \
 {                                                                                           \
@@ -293,6 +324,7 @@ static inline T* vec_bsearch_##Name(vec_##Name *v, const T *key,                
     return (T*) bsearch(key, v->data, v->length, sizeof(T), bs_cmp);                        \
 }                                                                                           \
                                                                                             \
+/* Returns pointer to the first element that does not compare less than key. */             \
 static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,                        \
                                         int (*compar)(const T *, const T *))                \
 {                                                                                           \
@@ -313,13 +345,14 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
     if (l == v->length) return NULL;                                                        \
     return &v->data[l];                                                                     \
 }                                                                                           \
-                                                                                            \
+/* Registers the type traits for C++ support. */                                            \
 Z_VEC_CPP_REGISTER(T, Name)
 
 
+/* C++ helper macro. */
 #ifdef __cplusplus
 #define Z_VEC_CPP_REGISTER(T, Name)                                                                         \
-} /* close extern C. */                                                                                     \
+} /* close extern C. */                                                                                      \
 namespace z_vec {                                                                                           \
     template <> struct traits<T> {                                                                          \
         using c_type = ::vec_##Name;                                                                        \
@@ -340,10 +373,11 @@ namespace z_vec {                                                               
 }                                                                                                           \
 extern "C" {
 #else
-#define Z_VEC_CPP_REGISTER(T, Name) /* No-op in C */
+#define Z_VEC_CPP_REGISTER(T, Name) /* No-op in C. */
 #endif
 
 
+/* X-Macro entries for generic dispatch. */
 #define PUSH_ENTRY(T, Name)         vec_##Name*: vec_push_##Name,
 #define PUSH_SLOT_ENTRY(T, Name)    vec_##Name*: vec_push_slot_##Name,
 #define EXTEND_ENTRY(T, Name)       vec_##Name*: vec_extend_##Name,
@@ -364,6 +398,7 @@ extern "C" {
 #define BSEARCH_ENTRY(T, Name)      vec_##Name*: vec_bsearch_##Name,
 #define LOWER_BOUND_ENTRY(T, Name)  vec_##Name*: vec_lower_bound_##Name,
 
+/* Registry Inclusion (Auto-generated by zscanner.py). */
 #if defined(__has_include) && __has_include("z_registry.h")
     #include "z_registry.h"
 #endif
@@ -380,26 +415,38 @@ extern "C" {
     Z_AUTOGEN_VECS(X) \
     REGISTER_TYPES(X)
 
+/* Expand implementations for all registered types. */
 Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 
+/* Auto-cleanup (GCC/Clang extension). */
 #if Z_HAS_CLEANUP
     #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
 #endif
 
+/* Public API Macros (C11 Generics). */
+
+// Helper to create a vector from literal args.
 #define vec_from(Name, ...) \
     vec_from_array_##Name((zvec_T_##Name[])__VA_ARGS__, sizeof((zvec_T_##Name[])__VA_ARGS__) / sizeof(zvec_T_##Name))
 
+// Initializes a zero-filled vector on the stack.
 #define vec_init(Name) {0}
+
+// Initializes a vector with pre-allocated capacity.
 #define vec_init_with_cap(Name, cap) vec_init_capacity_##Name(cap)
 
-#define VEC_CAT(a, b) a##b
-#define VEC_NAME(a, b) VEC_CAT(a, b)
-
+// Iterates over the vector. `iter` will be a pointer to each element.
+// usage: vec_foreach(&v, ptr) { printf("%d", *ptr); }
 #define vec_foreach(v, iter) \
     for (size_t VEC_NAME(_i_, __LINE__) = 0; \
          VEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[VEC_NAME(_i_, __LINE__)]); \
          ++VEC_NAME(_i_, __LINE__))
 
+// Macro helpers for name concatenation.
+#define VEC_CAT(a, b) a##b
+#define VEC_NAME(a, b) VEC_CAT(a, b)
+
+// Generic Function Calls
 #define vec_push(v, val)          _Generic((v), Z_ALL_VECS(PUSH_ENTRY)      default: 0)       (v, val)
 #define vec_push_slot(v)          _Generic((v), Z_ALL_VECS(PUSH_SLOT_ENTRY) default: (void*)0)(v)
 #define vec_extend(v, arr, count) _Generic((v), Z_ALL_VECS(EXTEND_ENTRY)    default: 0)       (v, arr, count)
@@ -421,9 +468,9 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
 #define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
 
 #ifdef __cplusplus
-} // extern "C".
+} // extern "C"
 
-// class wrapper.
+/* C++ Wrapper Class */
 namespace z_vec 
 {
     template <typename T>
@@ -442,34 +489,36 @@ namespace z_vec
         using iterator        = T*;
         using const_iterator  = const T*;
 
-        // Constructors.
+        // Default constructor.
         vector() { Traits::init(inner); }
         
+        // Constructs with initial capacity.
         explicit vector(size_t capacity) { Traits::init_cap(inner, capacity); }
 
+        // Constructs from an initializer list.
         vector(std::initializer_list<T> init) {
             Traits::init_cap(inner, init.size());
             Traits::extend(inner, init.begin(), init.size());
         }
 
-        // Copy constructor (deep copy).
+        // Copy constructor (Deep Copy).
         vector(const vector &other) 
         {
             Traits::init_cap(inner, other.size());
             Traits::extend(inner, other.data(), other.size());
         }
 
-        // Move constructor (transfer ownership).
+        // Move constructor (Transfer Ownership).
         vector(vector &&other) noexcept 
         {
             inner = other.inner;
             Traits::init(other.inner);
         }
 
-        // Destructor.
+        // Destructor (Frees memory).
         ~vector() { Traits::free(inner); }
 
-        // Assignment operators.
+        // Copy Assignment.
         vector& operator=(const vector &other) 
         {
             if (this != &other) 
@@ -481,6 +530,7 @@ namespace z_vec
             return *this;
         }
 
+        // Move Assignment.
         vector& operator=(vector &&other) noexcept 
         {
             if (this != &other) 
@@ -492,7 +542,7 @@ namespace z_vec
             return *this;
         }
 
-        // Accessors.
+        /* Accessors */
         T* data()             { return inner.data; }
         const T* data() const { return inner.data; }
         
@@ -500,9 +550,11 @@ namespace z_vec
         size_t capacity() const { return inner.capacity; }
         bool empty() const      { return inner.length == 0; }
 
+        // Unchecked access.
         T& operator[](size_t idx)             { return inner.data[idx]; }
         const T& operator[](size_t idx) const { return inner.data[idx]; }
 
+        // Checked access (throws std::out_of_range).
         T& at(size_t idx) 
         {
             if (idx >= size()) throw std::out_of_range("vector::at");
@@ -521,7 +573,7 @@ namespace z_vec
         T& back()             { return inner.data[inner.length - 1]; }
         const T& back() const { return inner.data[inner.length - 1]; }
 
-        // Modifiers.
+        /* Modifiers */
         void push_back(const T &val) { Traits::push(inner, val); }
         void pop_back()              { Traits::pop(inner); }
         
@@ -534,7 +586,7 @@ namespace z_vec
         void remove(size_t idx)      { Traits::remove(inner, idx); }
         void swap_remove(size_t idx) { Traits::swap_remove(inner, idx); }
 
-        // Iterators.
+        /* Iterators (enables range-based for loops). */
         iterator begin() { return inner.data; }
         iterator end()   { return inner.data + inner.length; }
         const_iterator begin() const { return inner.data; }
