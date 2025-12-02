@@ -9,8 +9,10 @@
 
 /* Lists */
 #define Z_AUTOGEN_LISTS(X) \
+    /* No lists found */
 
 /* Maps */
 #define Z_AUTOGEN_MAPS(X) \
+    /* No maps found */
 
 #endif // Z_REGISTRY_H
