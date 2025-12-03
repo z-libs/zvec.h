@@ -15,4 +15,8 @@
 #define Z_AUTOGEN_MAPS(X) \
     /* No maps found */
 
+/* Stable Maps */
+#define Z_AUTOGEN_STABLE_MAPS(X) \
+    /* No stable maps found */
+
 #endif // Z_REGISTRY_H

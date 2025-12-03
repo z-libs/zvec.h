@@ -15,7 +15,6 @@
 #ifndef Z_COMMON_BUNDLED
 #define Z_COMMON_BUNDLED
 
-
 #ifndef ZCOMMON_H
 #define ZCOMMON_H
 
@@ -53,20 +52,24 @@
 #define DEFINE_VEC_TYPE(T, Name)
 #define DEFINE_LIST_TYPE(T, Name)
 #define DEFINE_MAP_TYPE(Key, Val, Name)
+#define DEFINE_STABLE_MAP_TYPE(Key, Val, Name)
 
-//Growth Strategy.
+// Growth Strategy.
 // Determines how containers expand when full.
 // Default is 2.0x (Geometric Growth).
 //
-// Alternatives:
-// #define Z_GROWTH_FACTOR(c)  ((c) * 3 / 2) // 1.5x (Better for fragmentation)
-// #define Z_GROWTH_FACTOR(c)  ((c) + 16)    // Linear (Not recommended)
+// Optimization Note:
+// 2.0x minimizes realloc calls but can waste memory.
+// 1.5x is often better for memory fragmentation and reuse.
 #ifndef Z_GROWTH_FACTOR
+    // Default: Double capacity (2.0x)
     #define Z_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) * 2)
+    
+    // Alternative: 1.5x Growth (Uncomment to use)
+    // #define Z_GROWTH_FACTOR(cap) ((cap) == 0 ? 32 : (cap) + (cap) / 2)
 #endif
 
 #endif
-
 
 #endif // Z_COMMON_BUNDLED
 /* ============================================================================ */
