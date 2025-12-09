@@ -9,14 +9,15 @@
 
 /* Lists */
 #define Z_AUTOGEN_LISTS(X) \
-    /* No lists found */
 
 /* Maps */
 #define Z_AUTOGEN_MAPS(X) \
-    /* No maps found */
 
 /* Stable Maps */
 #define Z_AUTOGEN_STABLE_MAPS(X) \
-    /* No stable maps found */
+
+/* Results */
+#define Z_AUTOGEN_RESULTS(X) \
+    /* No results found */
 
 #endif // Z_REGISTRY_H
