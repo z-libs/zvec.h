@@ -8,7 +8,7 @@ typedef struct
 } Point;
 
 #define REGISTER_ZVEC_TYPES(X)  \
-    X(int, int)                 \
+    X(int, Int)                 \
     X(Point, Point)
 
 #define ZVEC_SHORT_NAMES

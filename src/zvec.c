@@ -287,7 +287,7 @@ typedef struct                                                                  
 ZVEC_GEN_SAFE_IMPL(T, Name)                                                                 \
                                                                                             \
 /* Initializes a vector with a specific initial capacity. */                                \
-static inline zvec_##Name vec_init_capacity_##Name(size_t cap)                              \
+static inline zvec_##Name zvec_init_capacity_##Name(size_t cap)                             \
 {                                                                                           \
     zvec_##Name v;                                                                          \
     memset(&v, 0, sizeof(zvec_##Name));                                                     \
@@ -300,7 +300,7 @@ static inline zvec_##Name vec_init_capacity_##Name(size_t cap)                  
 }                                                                                           \
                                                                                             \
 /* Creates a new vector by copying elements from a raw array. */                            \
-static inline zvec_##Name vec_from_array_##Name(const T *arr, size_t count)                 \
+static inline zvec_##Name zvec_from_array_##Name(const T *arr, size_t count)                \
 {                                                                                           \
     zvec_##Name v = zvec_init_capacity_##Name(count);                                       \
     if (v.data)                                                                             \
@@ -532,17 +532,20 @@ static inline T* zvec_lower_bound_##Name(zvec_##Name *v, const T *key,          
     #define LAST_SAFE_ENTRY(T, Name)    zvec_##Name*: zvec_last_safe_##Name,
 #endif
 
-/* Registry & type generation */
-#if defined(__has_include) && __has_include("z_registry.h")
-    #include "z_registry.h"
+// Only look for z_registry.h if the user hasn't already provided types manually.
+#ifndef REGISTER_ZVEC_TYPES
+    #if defined(__has_include) && __has_include("z_registry.h")
+        #include "z_registry.h"
+    #endif
+#endif
+
+// If still undefined after checking file, define as empty.
+#ifndef REGISTER_ZVEC_TYPES
+    #define REGISTER_ZVEC_TYPES(X)
 #endif
 
 #ifndef Z_AUTOGEN_VECS
     #define Z_AUTOGEN_VECS(X)
-#endif
-
-#ifndef REGISTER_ZVEC_TYPES
-    #define REGISTER_ZVEC_TYPES(X)
 #endif
 
 // Combine all sources of types.

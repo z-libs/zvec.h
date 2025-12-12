@@ -5,7 +5,7 @@
 int main(void)
 {
     printf("*Integer example*\n");
-    vec_int nums = vec_init(int);
+    vec(Int) nums = vec_init(Int);
     
     vec_push(&nums, 100);
     vec_push(&nums, 200);
@@ -31,7 +31,7 @@ int main(void)
     printf("\n\n");
 
     printf("*Point example*\n");
-    vec_Point points = vec_init(Point);
+    vec(Point) points = vec_init(Point);
 
     vec_push(&points, ((Point){1.0f, 1.0f}));
     vec_push(&points, ((Point){2.0f, 2.0f}));

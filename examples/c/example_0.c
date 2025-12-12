@@ -14,7 +14,7 @@ DEFINE_VEC_TYPE(Point, Point)
 
 int main(void) 
 {
-    vec_Int nums = vec_init(Int);
+    vec(Int) nums = vec_init(Int);
 
     vec_push(&nums, 10);
     vec_push(&nums, 20);
@@ -22,12 +22,13 @@ int main(void)
 
     printf("Integers: ");
     int *ptr; 
-    vec_foreach(&nums, ptr) {
+    vec_foreach(&nums, ptr) 
+    {
         printf("%d ", *ptr);
     }
     printf("\n");
 
-    vec_Point points = vec_init(Point);
+    vec(Point) points = vec_init(Point);
     vec_push(&points, ((Point){1.5f, 2.5f}));
     
     Point *p0 = vec_at(&points, 0);

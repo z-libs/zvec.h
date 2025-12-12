@@ -16,7 +16,7 @@ int compare_points_x(const Point *a, const Point *b)
 
 int main(void) 
 {
-    vec_int nums = vec_init(int);
+    vec(Int) nums = vec_init(Int);
     vec_push(&nums, 42);
     vec_push(&nums, 7);
     vec_push(&nums, 19);
@@ -33,7 +33,7 @@ int main(void)
     vec_foreach(&nums, n) printf("%d ", *n);
     printf("\n\n");
 
-    vec_Point points = vec_init(Point);
+    vec(Point) points = vec_init(Point);
     vec_push(&points, ((Point){10.0f, 2.0f}));
     vec_push(&points, ((Point){3.5f, 1.0f}));
     vec_push(&points, ((Point){7.0f, 5.0f}));
