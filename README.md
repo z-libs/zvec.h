@@ -194,6 +194,67 @@ void process_data()
 
 > **Disable Extensions:** To force standard compliance and disable these extensions, define `Z_NO_EXTENSIONS` before including the library.
 
+### Safe API (Error Handling)
+
+If your project includes **[`zerror.h`](https://github.com/z-libs/zerror.h)**, `zvec.h` automatically exposes a "Safe Mode" API.
+
+Unlike the standard API (which asserts or returns `NULL` on failure), the Safe API returns **Result Objects** (`zres` or `Res_Type`). These results contain full stack traces and debug information if an error occurs (for example, Out of Memory, Index Out of Bounds).
+
+> **Note:** To use the short macros (`try`, `check`, `unwrap`), you must define `#define Z_SHORT_ERR` before including the headers.
+
+**Safe Macros**
+
+| Macro | Returns | Description |
+| :--- | :--- | :--- |
+| `vec_push_safe(v, val)` | `zres` | Appends a value. Returns an error if memory allocation fails (OOM). |
+| `vec_reserve_safe(v, n)` | `zres` | Reserves capacity. Returns an error if memory allocation fails. |
+| `vec_at_safe(v, index)` | `Res_Type` | Returns the value at `index`. Returns an error if the index is out of bounds. |
+| `vec_pop_safe(v)` | `Res_Type` | Removes and returns the last element. Returns an error if the vector is empty. |
+| `vec_last_safe(v)` | `Res_Type` | Returns the last element (without removing). Returns an error if empty. |
+
+**Example Usage**
+
+The Safe API is designed to work with `zerror`'s flow control macros.
+
+```c
+#define ZERROR_IMPLEMENTATION
+#define Z_SHORT_ERR
+#include "zvec.h"
+#include "zerror.h"
+
+DEFINE_VEC_TYPE(int, Int)
+
+zres process_data() 
+{
+    vec_autofree(Int) nums = vec_init(Int);
+
+    // -> Check for OOM on push.
+    // We use check_ctx to add context to the error if it fails.
+    check_ctx(vec_push_safe(&nums, 100), "Failed to push first item");
+    check_ctx(vec_push_safe(&nums, 200), "Failed to push second item");
+
+    // -> Safe Access (Bounds Checking).
+    // We use try_into() because vec_at_safe returns 'Res_Int', 
+    // but this function must return 'zres' on failure.
+    int val = try_into(zres, vec_at_safe(&nums, 1));
+    
+    printf("Value is: %d\n", val);
+
+    // -> Panic on failure (Crash with stack trace).
+    // Useful if you are 100% sure the index exists.
+    int must_exist = unwrap(vec_at_safe(&nums, 0));
+
+    return zres_ok();
+}
+
+int main(void) 
+{
+    // If process_data fails, it prints a full error log.
+    run(process_data());
+    return 0;
+}
+```
+
 ## API Reference (C++)
 
 The C++ wrapper lives in the **`z_vec`** namespace. It strictly adheres to RAII principles and delegates all logic to the underlying C implementation.
