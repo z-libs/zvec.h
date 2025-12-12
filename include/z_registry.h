@@ -17,8 +17,4 @@
 /* Stable Maps */
 #define Z_AUTOGEN_STABLE_MAPS(X) \
 
-/* Results */
-#define Z_AUTOGEN_RESULTS(X) \
-    /* No results found */
-
 #endif // Z_REGISTRY_H
