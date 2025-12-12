@@ -2,14 +2,16 @@
 #ifndef MY_VECTORS_H
 #define MY_VECTORS_H
 
-typedef struct {
+typedef struct 
+{
     float x, y;
 } Point;
 
-#define REGISTER_TYPES(X)     \
-    X(int, int)               \
+#define REGISTER_ZVEC_TYPES(X)  \
+    X(int, int)                 \
     X(Point, Point)
 
+#define ZVEC_SHORT_NAMES
 #include "zvec.h"
 
 #endif

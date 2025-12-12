@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 
 typedef struct 
@@ -5,6 +6,7 @@ typedef struct
     float x, y;
 } Point;
 
+#define ZVEC_SHORT_NAMES
 #include "zvec.h"
 
 DEFINE_VEC_TYPE(int, Int)

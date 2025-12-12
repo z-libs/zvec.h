@@ -1,8 +1,9 @@
 
 #define Z_SHORT_ERR
 #define ZERROR_IMPLEMENTATION
-#include "zvec.h"
 #include "zerror.h"
+#define ZVEC_SHORT_NAMES
+#include "zvec.h"
 
 DEFINE_VEC_TYPE(int, Int)
 

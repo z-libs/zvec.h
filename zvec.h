@@ -268,20 +268,20 @@ extern "C" {
 
 /* C implementation. */
 
-#ifndef Z_VEC_MALLOC
-    #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
+#ifndef ZVEC_MALLOC
+    #define ZVEC_MALLOC(sz)      Z_MALLOC(sz)
 #endif
 
-#ifndef Z_VEC_CALLOC
-    #define Z_VEC_CALLOC(n, sz)   Z_CALLOC(n, sz)
+#ifndef ZVEC_CALLOC
+    #define ZVEC_CALLOC(n, sz)   Z_CALLOC(n, sz)
 #endif
 
-#ifndef Z_VEC_REALLOC
-    #define Z_VEC_REALLOC(p, sz)  Z_REALLOC(p, sz)
+#ifndef ZVEC_REALLOC
+    #define ZVEC_REALLOC(p, sz)  Z_REALLOC(p, sz)
 #endif
 
-#ifndef Z_VEC_FREE
-    #define Z_VEC_FREE(p)         Z_FREE(p)
+#ifndef ZVEC_FREE
+    #define ZVEC_FREE(p)         Z_FREE(p)
 #endif
 
 /* Safe API generator logic (requires zerror.h). */
@@ -307,7 +307,7 @@ extern "C" {
         {                                                                                       \
             if (v->length >= v->capacity) {                                                     \
                 size_t new_cap = (v->capacity == 0) ? 32 : v->capacity * 2;                     \
-                T *new_data = (T*)Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                  \
+                T *new_data = (T*)ZVEC_REALLOC(v->data, new_cap * sizeof(T));                  \
                 if (!new_data) {                                                                \
                     return zres_err(zvec_err_impl(Z_ERR, "Vector Push OOM", f, l, fn));         \
                 }                                                                               \
@@ -323,7 +323,7 @@ extern "C" {
                                                    const char* f, int l, const char* fn)        \
         {                                                                                       \
             if (cap <= v->capacity) return zres_ok();                                           \
-            T *new_data = (T*)Z_VEC_REALLOC(v->data, cap * sizeof(T));                          \
+            T *new_data = (T*)ZVEC_REALLOC(v->data, cap * sizeof(T));                          \
             if (!new_data) {                                                                    \
                 return zres_err(zvec_err_impl(Z_ERR, "Vector Reserve OOM", f, l, fn));          \
             }                                                                                   \
@@ -390,7 +390,7 @@ static inline vec_##Name vec_init_capacity_##Name(size_t cap)                   
     memset(&v, 0, sizeof(vec_##Name));                                                      \
     if (cap > 0)                                                                            \
     {                                                                                       \
-        v.data = (T*)Z_VEC_CALLOC(cap, sizeof(T));                                          \
+        v.data = (T*)ZVEC_CALLOC(cap, sizeof(T));                                          \
         v.capacity = v.data ? cap : 0;                                                      \
     }                                                                                       \
     return v;                                                                               \
@@ -412,7 +412,7 @@ static inline vec_##Name vec_from_array_##Name(const T *arr, size_t count)      
 static inline int vec_reserve_##Name(vec_##Name *v, size_t new_cap)                         \
 {                                                                                           \
     if (new_cap <= v->capacity) return Z_OK;                                                \
-    T *new_data = (T*)Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                          \
+    T *new_data = (T*)ZVEC_REALLOC(v->data, new_cap * sizeof(T));                          \
     if (!new_data) return Z_ERR;                                                            \
     v->data = new_data;                                                                     \
     v->capacity = new_cap;                                                                  \
@@ -480,12 +480,12 @@ static inline void vec_shrink_to_fit_##Name(vec_##Name *v)                      
 {                                                                                           \
     if (v->length == 0)                                                                     \
     {                                                                                       \
-        Z_VEC_FREE(v->data);                                                                \
+        ZVEC_FREE(v->data);                                                                \
         memset(v, 0, sizeof(vec_##Name));                                                   \
         return;                                                                             \
     }                                                                                       \
     if (v->length == v->capacity) return;                                                   \
-    T *new_data = (T*)Z_VEC_REALLOC(v->data, v->length * sizeof(T));                        \
+    T *new_data = (T*)ZVEC_REALLOC(v->data, v->length * sizeof(T));                        \
     if (!new_data) return;                                                                  \
     v->data = new_data;                                                                     \
     v->capacity = v->length;                                                                \
@@ -534,7 +534,7 @@ static inline void vec_clear_##Name(vec_##Name *v)                              
 /* Frees the underlying memory and resets the struct to zero. */                            \
 static inline void vec_free_##Name(vec_##Name *v)                                           \
 {                                                                                           \
-    Z_VEC_FREE(v->data);                                                                    \
+    ZVEC_FREE(v->data);                                                                    \
     memset(v, 0, sizeof(vec_##Name));                                                       \
 }                                                                                           \
                                                                                             \

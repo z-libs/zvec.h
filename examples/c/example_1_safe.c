@@ -9,6 +9,7 @@ typedef struct
 #define ZERROR_IMPLEMENTATION
 #define Z_SHORT_ERR
 #include "zerror.h"
+#define ZVEC_SHORT_NAMES
 #include "zvec.h"
 
 DEFINE_VEC_TYPE(SensorData, Data)

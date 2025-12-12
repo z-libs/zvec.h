@@ -4,6 +4,8 @@
 
 It also includes a robust **C++11 wrapper**, allowing you to use it as a lightweight, drop-in vector class (`z_vec::vector`) in mixed codebases while sharing the same underlying C implementation.
 
+It is part of the [zdk](https://github.com/z-libs/zdk) suite.
+
 ## Features
 
 * **Type Safety**: Compiler errors if you try to push a `float` into a `vec_int`.
@@ -16,6 +18,8 @@ It also includes a robust **C++11 wrapper**, allowing you to use it as a lightwe
 
 ## Installation
 
+### Manual
+
 `zvec.h` works best when you use the provided scanner script to manage type registrations, though it can be used manually.
 
 1.  Copy `zvec.h` (and `zcommon.h` if separated) to your project's include folder.
@@ -23,6 +27,18 @@ It also includes a robust **C++11 wrapper**, allowing you to use it as a lightwe
     ```bash
     git submodule add [https://github.com/z-libs/z-core.git](https://github.com/z-libs/z-core.git) z-core
     ```
+
+### Clib
+
+If you use the clib package manager, run:
+
+```bash
+clib install z-libs/zvec
+```
+
+### ZDK (Recommended)
+
+If you use the Zen Development Kit, it is included automatically by including `<zdk/zvec.h>` (or `<zdk/zworld.h>`).
 
 ## Usage: C
 
@@ -43,19 +59,19 @@ DEFINE_VEC_TYPE(Point, Point)
 int main(void)
 {
     // Initialize (Standard C style).
-    vec_Int nums = vec_init(Int);
-    vec_push(&nums, 42);
+    zvec_Int nums = zvec_init(Int);
+    zvec_push(&nums, 42);
 
     // Initialize Struct Vector.
-    vec_Point path = vec_init(Point);
-    vec_push(&path, ((Point){1.0f, 2.0f}));
+    zvec_Point path = zvec_init(Point);
+    zvec_push(&path, ((Point){1.0f, 2.0f}));
 
     // Access elements safely (returns T*).
-    printf("First number: %d\n", *vec_at(&nums, 0));
+    printf("First number: %d\n", *zvec_at(&nums, 0));
     
     // Cleanup.
-    vec_free(&nums);
-    vec_free(&path);
+    zvec_free(&nums);
+    zvec_free(&path);
     return 0;
 }
 ```
@@ -115,7 +131,7 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 #ifndef MY_VECTORS_H
 #define MY_VECTORS_H
 
-#define REGISTER_TYPES(X) \
+#define REGISTER_ZVEC_TYPES(X) \
     X(int, Int)           \
     X(float, Float)
 
@@ -135,44 +151,44 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 
 | Macro | Description |
 | :--- | :--- |
-| `vec_init(Type)` | Returns an empty vector structure initialized to zero. |
-| `vec_init_with_cap(Type, n)` | Returns a vector with initial memory reserved for `n` elements. |
-| `vec_from(Type, ...)` | Returns a vector populated with the provided elements (e.g., `vec_from(int, 1, 2, 3)`). |
-| `vec_free(v)` | Frees the internal memory array and zeroes the vector structure. |
-| `vec_clear(v)` | Sets the length to 0 but keeps the allocated memory capacity. |
-| `vec_reserve(v, n)` | Ensures the vector has capacity for at least `n` elements total. |
-| `vec_shrink_to_fit(v)` | Reallocates the internal memory to match exactly the current length. |
+| `zvec_init(Type)` | Returns an empty vector structure initialized to zero. |
+| `zvec_init_with_cap(Type, n)` | Returns a vector with initial memory reserved for `n` elements. |
+| `zvec_from(Type, ...)` | Returns a vector populated with the provided elements (for example, `zvec_from(int, 1, 2, 3)`). |
+| `zvec_free(v)` | Frees the internal memory array and zeroes the vector structure. |
+| `zvec_clear(v)` | Sets the length to 0 but keeps the allocated memory capacity. |
+| `zvec_reserve(v, n)` | Ensures the vector has capacity for at least `n` elements total. |
+| `zvec_shrink_to_fit(v)` | Reallocates the internal memory to match exactly the current length. |
 
 **Data Access**
 
 | Macro | Description |
 | :--- | :--- |
-| `vec_at(v, index)` | Returns a **pointer** to the element at `index`, or `NULL` if out of bounds. |
-| `vec_last(v)` | Returns a **pointer** to the last element in the vector. |
-| `vec_data(v)` | Returns the raw underlying array pointer (`T*`). |
-| `vec_is_empty(v)` | Returns `1` (true) if the vector length is 0, otherwise `0`. |
+| `zvec_at(v, index)` | Returns a **pointer** to the element at `index`, or `NULL` if out of bounds. |
+| `zvec_last(v)` | Returns a **pointer** to the last element in the vector. |
+| `zvec_data(v)` | Returns the raw underlying array pointer (`T*`). |
+| `zvec_is_empty(v)` | Returns `1` (true) if the vector length is 0, otherwise `0`. |
 
 **Modification**
 
 | Macro | Description |
 | :--- | :--- |
-| `vec_push(v, value)` | Appends value to the end. Copies data twice (stack -> heap). Best for simple types. |
-| `vec_push_slot(v, value)` | Reserves space at the end and returns a **pointer** to it. Zero overhead. Best for large structs. |
-| `vec_pop(v)` | Removes the last element. Decrements length. |
-| `vec_pop_get(v)` | Removes the last element and **returns** its value. |
-| `vec_extend(v, arr, count)` | Appends `count` elements from the raw array `arr` to the end of the vector. |
-| `vec_remove(v, index)` | Removes the element at `index`, shifting all subsequent elements left (preserves order). |
-| `vec_swap_remove(v, index)` | Removes the element at `index` by swapping it with the last element (O(1), order not preserved). |
-| `vec_reverse(v)` | Reverses the elements of the vector in-place. |
+| `zvec_push(v, value)` | Appends value to the end. Copies data twice (stack -> heap). Best for simple types. |
+| `zvec_push_slot(v, value)` | Reserves space at the end and returns a **pointer** to it. Zero overhead. Best for large structs. |
+| `zvec_pop(v)` | Removes the last element. Decrements length. |
+| `zvec_pop_get(v)` | Removes the last element and **returns** its value. |
+| `zvec_extend(v, arr, count)` | Appends `count` elements from the raw array `arr` to the end of the vector. |
+| `zvec_remove(v, index)` | Removes the element at `index`, shifting all subsequent elements left (preserves order). |
+| `zvec_swap_remove(v, index)` | Removes the element at `index` by swapping it with the last element (O(1), order not preserved). |
+| `zvec_reverse(v)` | Reverses the elements of the vector in-place. |
 
 **Algorithms & Iteration**
 
 | Macro | Description |
 | :--- | :--- |
-| `vec_foreach(v, iter)` | A loop helper. `iter` must be a pointer variable; it is assigned to each element in the vector sequentially. |
-| `vec_sort(v, cmp)` | Sorts the vector in-place using standard `qsort`. `cmp` is a function pointer: `int (*)(const T*, const T*)`. |
-| `vec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
-| `vec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
+| `zvec_foreach(v, iter)` | A loop helper. `iter` must be a pointer variable; it is assigned to each element in the vector sequentially. |
+| `zvec_sort(v, cmp)` | Sorts the vector in-place using standard `qsort`. `cmp` is a function pointer: `int (*)(const T*, const T*)`. |
+| `zvec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
+| `zvec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |
 
 **Extensions (Experimental)**
 
@@ -180,15 +196,15 @@ If you are using a compiler that supports `__attribute__((cleanup))` (like GCC o
 
 | Macro | Description |
 | :--- | :--- |
-| `vec_autofree(Type)` | Declares a vector that automatically calls `vec_free` when the variable leaves scope (RAII style). |
+| `zvec_autofree(Type)` | Declares a vector that automatically calls `zvec_free` when the variable leaves scope (RAII style). |
 
 **Example:**
 ```c
 void process_data()
 {
     // 'nums' will be automatically freed when this function returns.
-    vec_autofree(int) nums = vec_init(int);
-    vec_push(&nums, 100);
+    zvec_autofree(int) nums = zvec_init(int);
+    zvec_push(&nums, 100);
 }
 ```
 
@@ -206,11 +222,11 @@ Unlike the standard API (which asserts or returns `NULL` on failure), the Safe A
 
 | Macro | Returns | Description |
 | :--- | :--- | :--- |
-| `vec_push_safe(v, val)` | `zres` | Appends a value. Returns an error if memory allocation fails (OOM). |
-| `vec_reserve_safe(v, n)` | `zres` | Reserves capacity. Returns an error if memory allocation fails. |
-| `vec_at_safe(v, index)` | `Res_Type` | Returns the value at `index`. Returns an error if the index is out of bounds. |
-| `vec_pop_safe(v)` | `Res_Type` | Removes and returns the last element. Returns an error if the vector is empty. |
-| `vec_last_safe(v)` | `Res_Type` | Returns the last element (without removing). Returns an error if empty. |
+| `zvec_push_safe(v, val)` | `zres` | Appends a value. Returns an error if memory allocation fails (OOM). |
+| `zvec_reserve_safe(v, n)` | `zres` | Reserves capacity. Returns an error if memory allocation fails. |
+| `zvec_at_safe(v, index)` | `Res_Type` | Returns the value at `index`. Returns an error if the index is out of bounds. |
+| `zvec_pop_safe(v)` | `Res_Type` | Removes and returns the last element. Returns an error if the vector is empty. |
+| `zvec_last_safe(v)` | `Res_Type` | Returns the last element (without removing). Returns an error if empty. |
 
 **Example Usage**
 
@@ -218,7 +234,7 @@ The Safe API is designed to work with `zerror`'s flow control macros.
 
 ```c
 #define ZERROR_IMPLEMENTATION
-#define Z_SHORT_ERR
+#define ZERROR_SHORT_NAMES
 #include "zvec.h"
 #include "zerror.h"
 
@@ -226,23 +242,23 @@ DEFINE_VEC_TYPE(int, Int)
 
 zres process_data() 
 {
-    vec_autofree(Int) nums = vec_init(Int);
+    zvec_autofree(Int) nums = zvec_init(Int);
 
     // -> Check for OOM on push.
     // We use check_ctx to add context to the error if it fails.
-    check_ctx(vec_push_safe(&nums, 100), "Failed to push first item");
-    check_ctx(vec_push_safe(&nums, 200), "Failed to push second item");
+    check_ctx(zvec_push_safe(&nums, 100), "Failed to push first item");
+    check_ctx(zvec_push_safe(&nums, 200), "Failed to push second item");
 
     // -> Safe Access (Bounds Checking).
     // We use try_into() because vec_at_safe returns 'Res_Int', 
     // but this function must return 'zres' on failure.
-    int val = try_into(zres, vec_at_safe(&nums, 1));
+    int val = try_into(zres, zvec_at_safe(&nums, 1));
     
     printf("Value is: %d\n", val);
 
     // -> Panic on failure (Crash with stack trace).
     // Useful if you are 100% sure the index exists.
-    int must_exist = unwrap(vec_at_safe(&nums, 0));
+    int must_exist = unwrap(zvec_at_safe(&nums, 0));
 
     return zres_ok();
 }
@@ -341,14 +357,19 @@ If you need different allocators for different containers (e.g., an Arena for Li
 
 ```c
 // Example: Vectors use a Frame Arena, everything else uses standard malloc.
-#define Z_VEC_CALLOC(n, sz)  arena_alloc_zero(frame_arena, (n) * (sz))
-#define Z_VEC_REALLOC(p, sz) arena_resize(frame_arena, p, sz)
-#define Z_VEC_FREE(p)        /* no-op for linear arena */
-// (Z_VEC_MALLOC is strictly unused by zvec internally, but good to define for consistency).
+#define ZVEC_CALLOC(n, sz)  arena_alloc_zero(frame_arena, (n) * (sz))
+#define ZVEC_REALLOC(p, sz) arena_resize(frame_arena, p, sz)
+#define ZVEC_FREE(p)        /* no-op for linear arena */
+// (ZVEC_MALLOC is strictly unused by zvec internally, but good to define for consistency).
 
 #include "zvec.h"
 #include "zlist.h" // zlist will still use standard malloc!
 ```
+
+## Short Names (Opt-In)
+
+If you prefer a cleaner API and don't have naming conflicts, define `ZVEC_SHORT_NAMES` before including the header. This allows you to use aliases like `vec_push` and `vec_free` instead of their prefixed counterparts.
+
 
 ## Notes
 
@@ -361,6 +382,6 @@ In `REGISTER_TYPES(X)`, you must provide two arguments: the **Actual Type** and 
 X(unsigned long,        ulong)
 ```
 
-The reason is that C macros cannot handle spaces when generating names. The library tries to create functions by gluing `vec_` + `Name`.
+The reason is that C macros cannot handle spaces when generating names. The library tries to create functions by gluing `zvec_` + `Name`.
 
 If you used `unsigned long` as the name, the macro would try to generate `vec_unsigned long`, which is a syntax error (variable names cannot contain spaces). But, by passing `ulong`, it correctly generates `vec_ulong`.
