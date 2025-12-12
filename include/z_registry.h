@@ -4,6 +4,7 @@
 
 /* Vectors */
 #define Z_AUTOGEN_VECS(X) \
+    X(SensorData, Data) \
     X(int, Int) \
     X(Point, Point) \
 

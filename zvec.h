@@ -108,6 +108,15 @@
 #include <assert.h>
 #include <stdlib.h> 
 
+#if defined(__has_include) && __has_include("zerror.h")
+    #include "zerror.h"
+    #define Z_HAS_ZERROR 1
+#elif defined(ZERROR_H)
+    #define Z_HAS_ZERROR 1
+#else
+    #define Z_HAS_ZERROR 0
+#endif
+
 /* C++ interop preamble. */
 #ifdef __cplusplus
 #include <initializer_list>
@@ -200,7 +209,7 @@ namespace z_vec
             return *this;
         }
 
-        /* Accessors */
+        /* Accessors. */
 
         T* data()             { return inner.data; }
         const T* data() const { return inner.data; }
@@ -257,7 +266,7 @@ namespace z_vec
 extern "C" {
 #endif
 
-/* C Implementation */
+/* C implementation. */
 
 #ifndef Z_VEC_MALLOC
     #define Z_VEC_MALLOC(sz)      Z_MALLOC(sz)
@@ -275,11 +284,90 @@ extern "C" {
     #define Z_VEC_FREE(p)         Z_FREE(p)
 #endif
 
+/* Safe API generator logic (requires zerror.h). */
+#if Z_HAS_ZERROR
+
+    /* * Helper to bridge zvec location to zerror. 
+     * We use zerr_create_impl directly to inject the CALLER'S location,
+     * not the location inside this header file.
+     */
+    static inline zerr zvec_err_impl(int code, const char* msg, 
+                                     const char* file, int line, const char* func) 
+    {
+        return zerr_create_impl(code, file, line, func, "%s", msg);
+    }
+
+    #define Z_VEC_GEN_SAFE_IMPL(T, Name)                                                        \
+        /* Define a Result type for this specific element type (for example, Res_Point) */      \
+        DEFINE_RESULT(T, Res_##Name)                                                            \
+                                                                                                \
+        /* Push with OOM check. Returns standard zres (void result). */                         \
+        static inline zres vec_push_safe_##Name(vec_##Name *v, T value,                         \
+                                                const char* f, int l, const char* fn)           \
+        {                                                                                       \
+            if (v->length >= v->capacity) {                                                     \
+                size_t new_cap = (v->capacity == 0) ? 32 : v->capacity * 2;                     \
+                T *new_data = (T*)Z_VEC_REALLOC(v->data, new_cap * sizeof(T));                  \
+                if (!new_data) {                                                                \
+                    return zres_err(zvec_err_impl(Z_ERR, "Vector Push OOM", f, l, fn));         \
+                }                                                                               \
+                v->data = new_data;                                                             \
+                v->capacity = new_cap;                                                          \
+            }                                                                                   \
+            v->data[v->length++] = value;                                                       \
+            return zres_ok();                                                                   \
+        }                                                                                       \
+                                                                                                \
+        /* Reserve with OOM check. */                                                           \
+        static inline zres vec_reserve_safe_##Name(vec_##Name *v, size_t cap,                   \
+                                                   const char* f, int l, const char* fn)        \
+        {                                                                                       \
+            if (cap <= v->capacity) return zres_ok();                                           \
+            T *new_data = (T*)Z_VEC_REALLOC(v->data, cap * sizeof(T));                          \
+            if (!new_data) {                                                                    \
+                return zres_err(zvec_err_impl(Z_ERR, "Vector Reserve OOM", f, l, fn));          \
+            }                                                                                   \
+            v->data = new_data;                                                                 \
+            v->capacity = cap;                                                                  \
+            return zres_ok();                                                                   \
+        }                                                                                       \
+                                                                                                \
+        /* Pop that returns Result<T>. Fails if empty. */                                       \
+        static inline Res_##Name vec_pop_safe_##Name(vec_##Name *v,                             \
+                                                     const char* f, int l, const char* fn)      \
+        {                                                                                       \
+            if (v->length == 0)                                                                 \
+                return Res_##Name##_err(zvec_err_impl(Z_ERR, "Pop empty vec", f, l, fn));       \
+            return Res_##Name##_ok(v->data[--v->length]);                                       \
+        }                                                                                       \
+                                                                                                \
+        /* At (get) that returns Result<T>. Fails if bounds. */                                 \
+        static inline Res_##Name vec_at_safe_##Name(vec_##Name *v, size_t i,                    \
+                                                    const char* f, int l, const char* fn)       \
+        {                                                                                       \
+            if (i >= v->length)                                                                 \
+                return Res_##Name##_err(zvec_err_impl(Z_ERR, "Index out of bounds", f, l, fn)); \
+            return Res_##Name##_ok(v->data[i]);                                                 \
+        }                                                                                       \
+                                                                                                \
+        /* Last that returns Result<T>. */                                                      \
+        static inline Res_##Name vec_last_safe_##Name(vec_##Name *v,                            \
+                                                      const char* f, int l, const char* fn)     \
+        {                                                                                       \
+            if (v->length == 0)                                                                 \
+                return Res_##Name##_err(zvec_err_impl(Z_ERR, "Vector is empty", f, l, fn));     \
+            return Res_##Name##_ok(v->data[v->length - 1]);                                     \
+        }
+
+#else
+    #define Z_VEC_GEN_SAFE_IMPL(T, Name)
+#endif
+
 /* * The generator macro.
  * Expands to a complete implementation of a dynamic array for type T.
  * T    : The element type (e.g., int, float, Point).
  * Name : The suffix for the generated functions (for example, Int -> vec_push_Int).
- *        Name must be one word only.
+ * Name must be one word only.
  */
 #define Z_VEC_GENERATE_IMPL(T, Name)                                                        \
                                                                                             \
@@ -291,6 +379,9 @@ typedef struct {                                                                
     size_t length;                                                                          \
     size_t capacity;                                                                        \
 } vec_##Name;                                                                               \
+                                                                                            \
+/* Inject Safe API if enabled */                                                            \
+Z_VEC_GEN_SAFE_IMPL(T, Name)                                                                \
                                                                                             \
 /* Initializes a vector with a specific initial capacity. */                                \
 static inline vec_##Name vec_init_capacity_##Name(size_t cap)                               \
@@ -348,6 +439,7 @@ static inline T* vec_push_slot_##Name(vec_##Name *v)                            
 /* Appends a value to the end of the vector. */                                             \
 static inline int vec_push_##Name(vec_##Name *v, T value)                                   \
 {                                                                                           \
+    /* Reusing safe impl logic if desired, but keeping independent for now */               \
     T *slot = vec_push_slot_##Name(v);                                                      \
     if (!slot) return Z_ERR;                                                                \
     *slot = value;                                                                          \
@@ -433,7 +525,7 @@ static inline void vec_swap_remove_##Name(vec_##Name *v, size_t index)          
     v->data[index] = v->data[--v->length];                                                  \
 }                                                                                           \
                                                                                             \
-/* Sets the length to 0, logically clearing the vector. */                                   \
+/* Sets the length to 0, logically clearing the vector. */                                  \
 static inline void vec_clear_##Name(vec_##Name *v)                                          \
 {                                                                                           \
     v->length = 0;                                                                          \
@@ -490,7 +582,7 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
     while (l < r)                                                                           \
     {                                                                                       \
         size_t mid = l + (r - l) / 2;                                                       \
-        if (compar(&v->data[mid], key) < 0)                                                 \
+        if (compar((const T*)&v->data[mid], key) < 0)                                       \
         {                                                                                   \
             l = mid + 1;                                                                    \
         }                                                                                   \
@@ -524,6 +616,14 @@ static inline T* vec_lower_bound_##Name(vec_##Name *v, const T *key,            
 #define BSEARCH_ENTRY(T, Name)      vec_##Name*: vec_bsearch_##Name,
 #define LOWER_BOUND_ENTRY(T, Name)  vec_##Name*: vec_lower_bound_##Name,
 
+#if Z_HAS_ZERROR
+    #define RESERVE_SAFE_ENTRY(T, Name) vec_##Name*: vec_reserve_safe_##Name,
+    #define PUSH_SAFE_ENTRY(T, Name)    vec_##Name*: vec_push_safe_##Name,
+    #define POP_SAFE_ENTRY(T, Name)     vec_##Name*: vec_pop_safe_##Name,
+    #define AT_SAFE_ENTRY(T, Name)      vec_##Name*: vec_at_safe_##Name,
+    #define LAST_SAFE_ENTRY(T, Name)    vec_##Name*: vec_last_safe_##Name,
+#endif
+
 /* Registry & type generation */
 #if defined(__has_include) && __has_include("z_registry.h")
     #include "z_registry.h"
@@ -552,7 +652,7 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
     vec_from_array_##Name((zvec_T_##Name[])__VA_ARGS__, sizeof((zvec_T_##Name[])__VA_ARGS__) / sizeof(zvec_T_##Name))
 
 // Initializes a zero-filled vector on the stack.
-#define vec_init(Name) {0}
+#define vec_init(Name) vec_init_capacity_##Name(0)
 
 // Initializes a vector with pre-allocated capacity.
 #define vec_init_with_cap(Name, cap) vec_init_capacity_##Name(cap)
@@ -562,26 +662,26 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
     #define vec_autofree(Name)  Z_CLEANUP(vec_free_##Name) vec_##Name
 #endif
 
-// Generic Function Calls
-#define vec_push(v, val)          _Generic((v), Z_ALL_VECS(PUSH_ENTRY)      default: 0)       (v, val)
-#define vec_push_slot(v)          _Generic((v), Z_ALL_VECS(PUSH_SLOT_ENTRY) default: (void*)0)(v)
-#define vec_extend(v, arr, count) _Generic((v), Z_ALL_VECS(EXTEND_ENTRY)    default: 0)       (v, arr, count)
-#define vec_reserve(v, cap)       _Generic((v), Z_ALL_VECS(RESERVE_ENTRY)   default: 0)       (v, cap)
-#define vec_is_empty(v)           _Generic((v), Z_ALL_VECS(IS_EMPTY_ENTRY)  default: 0)       (v)
-#define vec_at(v, idx)            _Generic((v), Z_ALL_VECS(AT_ENTRY)        default: (void*)0)(v, idx)
-#define vec_data(v)               _Generic((v), Z_ALL_VECS(DATA_ENTRY)      default: (void*)0)(v)
-#define vec_last(v)               _Generic((v), Z_ALL_VECS(LAST_ENTRY)      default: (void*)0)(v)
-#define vec_free(v)               _Generic((v), Z_ALL_VECS(FREE_ENTRY)      default: (void)0) (v)
-#define vec_pop(v)                _Generic((v), Z_ALL_VECS(POP_ENTRY)       default: (void)0) (v)
-#define vec_pop_get(v)            _Generic((v), Z_ALL_VECS(POP_GET_ENTRY)   default: (void)0) (v)
-#define vec_shrink_to_fit(v)      _Generic((v), Z_ALL_VECS(SHRINK_ENTRY)    default: (void)0) (v)
-#define vec_remove(v, i)          _Generic((v), Z_ALL_VECS(REMOVE_ENTRY)    default: (void)0) (v, i)
-#define vec_swap_remove(v, i)     _Generic((v), Z_ALL_VECS(SWAP_REM_ENTRY)  default: (void)0) (v, i)
-#define vec_clear(v)              _Generic((v), Z_ALL_VECS(CLEAR_ENTRY)     default: (void)0) (v)
-#define vec_reverse(v)            _Generic((v), Z_ALL_VECS(REVERSE_ENTRY)   default: (void)0) (v)
-#define vec_sort(v, cmp)          _Generic((v), Z_ALL_VECS(SORT_ENTRY)      default: (void)0) (v, cmp)
-#define vec_bsearch(v, k, c)      _Generic((v), Z_ALL_VECS(BSEARCH_ENTRY)     default: (void*)0)(v, k, c)
-#define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY) default: (void*)0)(v, k, c)
+// Generic Function Calls.
+#define vec_push(v, val)          _Generic((v), Z_ALL_VECS(PUSH_ENTRY)          default: 0)       (v, val)
+#define vec_push_slot(v)          _Generic((v), Z_ALL_VECS(PUSH_SLOT_ENTRY)     default: (void*)0)(v)
+#define vec_extend(v, arr, count) _Generic((v), Z_ALL_VECS(EXTEND_ENTRY)        default: 0)       (v, arr, count)
+#define vec_reserve(v, cap)       _Generic((v), Z_ALL_VECS(RESERVE_ENTRY)       default: 0)       (v, cap)
+#define vec_is_empty(v)           _Generic((v), Z_ALL_VECS(IS_EMPTY_ENTRY)      default: 0)       (v)
+#define vec_at(v, idx)            _Generic((v), Z_ALL_VECS(AT_ENTRY)            default: (void*)0)(v, idx)
+#define vec_data(v)               _Generic((v), Z_ALL_VECS(DATA_ENTRY)          default: (void*)0)(v)
+#define vec_last(v)               _Generic((v), Z_ALL_VECS(LAST_ENTRY)          default: (void*)0)(v)
+#define vec_free(v)               _Generic((v), Z_ALL_VECS(FREE_ENTRY)          default: (void)0) (v)
+#define vec_pop(v)                _Generic((v), Z_ALL_VECS(POP_ENTRY)           default: (void)0) (v)
+#define vec_pop_get(v)            _Generic((v), Z_ALL_VECS(POP_GET_ENTRY)       default: (void)0) (v)
+#define vec_shrink_to_fit(v)      _Generic((v), Z_ALL_VECS(SHRINK_ENTRY)        default: (void)0) (v)
+#define vec_remove(v, i)          _Generic((v), Z_ALL_VECS(REMOVE_ENTRY)        default: (void)0) (v, i)
+#define vec_swap_remove(v, i)     _Generic((v), Z_ALL_VECS(SWAP_REM_ENTRY)      default: (void)0) (v, i)
+#define vec_clear(v)              _Generic((v), Z_ALL_VECS(CLEAR_ENTRY)         default: (void)0) (v)
+#define vec_reverse(v)            _Generic((v), Z_ALL_VECS(REVERSE_ENTRY)       default: (void)0) (v)
+#define vec_sort(v, cmp)          _Generic((v), Z_ALL_VECS(SORT_ENTRY)          default: (void)0) (v, cmp)
+#define vec_bsearch(v, k, c)      _Generic((v), Z_ALL_VECS(BSEARCH_ENTRY)       default: (void*)0)(v, k, c)
+#define vec_lower_bound(v, k, c)  _Generic((v), Z_ALL_VECS(LOWER_BOUND_ENTRY)   default: (void*)0)(v, k, c)
 
 // Helper Macros.
 #define VEC_CAT(a, b) a##b
@@ -593,8 +693,31 @@ Z_ALL_VECS(Z_VEC_GENERATE_IMPL)
          VEC_NAME(_i_, __LINE__) < (v)->length && ((iter) = &(v)->data[VEC_NAME(_i_, __LINE__)]); \
          ++VEC_NAME(_i_, __LINE__))
 
+/* Safe API Macros (conditioned on zerror.h). */
+#if Z_HAS_ZERROR
+    /* Dummy handler must accept variadic args to eat the extra file/line/func params */
+    static inline zres zres_err_dummy(void* v, ...) 
+    { 
+        return zres_err(zerr_create(-1, "Unknown Vector Type")); 
+    }
 
-/* C++ Trait specialization (Executed after C code is defined) */
+    #define vec_reserve_safe(v, cap) \
+        _Generic((v), Z_ALL_VECS(RESERVE_SAFE_ENTRY) default: zres_err_dummy)(v, cap, __FILE__, __LINE__, __func__)
+
+    #define vec_push_safe(v, val) \
+        _Generic((v), Z_ALL_VECS(PUSH_SAFE_ENTRY) default: zres_err_dummy)(v, val, __FILE__, __LINE__, __func__)
+
+    #define vec_pop_safe(v) \
+        _Generic((v), Z_ALL_VECS(POP_SAFE_ENTRY)  default: zres_err_dummy)(v, __FILE__, __LINE__, __func__)
+
+    #define vec_at_safe(v, i) \
+        _Generic((v), Z_ALL_VECS(AT_SAFE_ENTRY)   default: zres_err_dummy)(v, i, __FILE__, __LINE__, __func__)
+
+    #define vec_last_safe(v) \
+        _Generic((v), Z_ALL_VECS(LAST_SAFE_ENTRY) default: zres_err_dummy)(v, __FILE__, __LINE__, __func__)
+#endif
+
+/* C++ Trait specialization (executed after C code is defined). */
 #ifdef __cplusplus
 } // extern "C"
 
