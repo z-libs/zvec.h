@@ -24,16 +24,17 @@ It is part of the [zdk](https://github.com/z-libs/zdk) suite.
 
 1.  Copy `zvec.h` (and `zcommon.h` if separated) to your project's include folder.
 2.  Add the `z-core` tools (optional but recommended):
-    ```bash
-    git submodule add [https://github.com/z-libs/z-core.git](https://github.com/z-libs/z-core.git) z-core
-    ```
+   
+```bash
+git submodule add https://github.com/z-libs/z-core.git z-core
+```
 
 ### Clib
 
 If you use the clib package manager, run:
 
 ```bash
-clib install z-libs/zvec
+clib install z-libs/zdk
 ```
 
 ### ZDK (Recommended)
