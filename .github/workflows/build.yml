@@ -1,3 +1,4 @@
+
 name: Build and Sync
 
 on:
@@ -36,17 +37,29 @@ jobs:
       - name: Test Z-Scanner
         run: |
           echo "Running scanner on examples/..."
+          # Ensure directory exists before running
+          mkdir -p include
+          
           python3 z-core/zscanner.py examples/ include/z_registry.h
+          
           if [ -f "include/z_registry.h" ]; then
             echo "Scanner successfully generated registry!"
             cat include/z_registry.h
           else
-            echo "Scanner failed to generate registry."
+            # ::error:: creates a red annotation in the GitHub UI
+            echo "::error::Scanner failed to generate registry file."
             exit 1
           fi
 
-      - name: Run Make
-        run: make
+      - name: Build Library
+        run: make bundle
+
+      - name: Run Unit Tests
+        run: |
+          echo "Running C and C++ Test Suites..."
+          # Runs the 'test' target from your Makefile. 
+          # If it fails (non-zero exit), we print an error and exit.
+          make test || { echo "::error::Unit tests failed! Check the logs above for assertion errors."; exit 1; }
 
       - name: Commit and Push changes
         uses: stefanzweifel/git-auto-commit-action@v5
