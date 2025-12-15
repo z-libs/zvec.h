@@ -186,7 +186,8 @@ If you cannot use Python or prefer manual control, you can use the **Registry He
 
 | Macro | Description |
 | :--- | :--- |
-| `zvec_foreach(v, iter)` | A loop helper. `iter` must be a pointer variable; it is assigned to each element in the vector sequentially. |
+| `zvec_foreach(v, it)` | Standard traversal. **GCC/Clang**: Auto-declares `it`. **Std C**: `it` must be declared before loop. |
+| `zvec_foreach_decl(Name, v, it)` | **Portable C99**. Iterates and declares `it` as a pointer inside the loop. Requires type Name. |
 | `zvec_sort(v, cmp)` | Sorts the vector in-place using standard `qsort`. `cmp` is a function pointer: `int (*)(const T*, const T*)`. |
 | `zvec_bsearch(v, key, cmp)` | Performs a binary search. Returns a pointer to the found element or `NULL`. `key` is `const T*`. |
 | `zvec_lower_bound(v, key, cmp)`| Returns a pointer to the first element that does not compare less than `key`. Returns `NULL` if all elements are smaller. |

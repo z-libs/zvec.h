@@ -1,6 +1,17 @@
 
 #include <stdio.h>
-#include "my_vectors.h"
+
+typedef struct 
+{
+    float x, y;
+} Point;
+
+#define REGISTER_ZVEC_TYPES(X)  \
+    X(int, Int)                 \
+    X(Point, Point)
+
+#define ZVEC_SHORT_NAMES
+#include "zvec.h"
 
 int compare_ints(const int *a, const int *b) 
 {
@@ -23,7 +34,6 @@ int main(void)
     vec_push(&nums, 1);
 
     printf("Before sort: ");
-    int *n;
     vec_foreach(&nums, n) printf("%d ", *n);
     printf("\n");
 
@@ -39,7 +49,6 @@ int main(void)
     vec_push(&points, ((Point){7.0f, 5.0f}));
 
     printf("Points before sort (by X):\n");
-    Point *p;
     vec_foreach(&points, p) printf("{%.1f, %.1f} ", p->x, p->y);
     printf("\n");
 

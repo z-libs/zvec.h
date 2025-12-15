@@ -1,6 +1,11 @@
 
 #include <stdio.h>
-#include "my_vectors.h"
+
+#define REGISTER_ZVEC_TYPES(X)  \
+    X(int, Int)
+
+#define ZVEC_SHORT_NAMES
+#include "zvec.h"
 
 int compare_ints(const int *a, const int *b) 
 {
@@ -9,7 +14,7 @@ int compare_ints(const int *a, const int *b)
 
 int main(void) 
 {
-    vec_int nums = vec_init(int);
+    vec(Int) nums = vec_init(Int);
     
     vec_push(&nums, 100);
     vec_push(&nums, 50);
@@ -19,7 +24,6 @@ int main(void)
     
     vec_extend(&nums, bulk_data, 4);
 
-    int *n;
     printf("Current Vector: ");
     vec_foreach(&nums, n) printf("%d ", *n);
     printf("\n\n");

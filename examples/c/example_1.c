@@ -1,6 +1,17 @@
 
 #include <stdio.h>
-#include "my_vectors.h"
+
+typedef struct 
+{
+    float x, y;
+} Point;
+
+#define REGISTER_ZVEC_TYPES(X)  \
+    X(int, Int)                 \
+    X(Point, Point)
+
+#define ZVEC_SHORT_NAMES
+#include "zvec.h"
 
 int main(void)
 {
@@ -13,7 +24,6 @@ int main(void)
     vec_push(&nums, 400);
 
     printf("Before remove: ");
-    int *n;
     vec_foreach(&nums, n)
     {
         printf("%d ", *n);
@@ -38,7 +48,6 @@ int main(void)
     vec_push(&points, ((Point){3.0f, 3.0f}));
     vec_push(&points, ((Point){4.0f, 4.0f}));
 
-    Point *p;
     int i = 0;
     vec_foreach(&points, p) 
     {
