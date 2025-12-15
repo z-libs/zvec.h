@@ -37,7 +37,6 @@ jobs:
       - name: Test Z-Scanner
         run: |
           echo "Running scanner on examples/..."
-          # Ensure directory exists before running
           mkdir -p include
           
           python3 z-core/zscanner.py examples/ include/z_registry.h
@@ -46,10 +45,10 @@ jobs:
             echo "Scanner successfully generated registry!"
             cat include/z_registry.h
           else
-            # ::error:: creates a red annotation in the GitHub UI
             echo "::error::Scanner failed to generate registry file."
             exit 1
           fi
+          rm -rf include 
 
       - name: Build Library
         run: make bundle

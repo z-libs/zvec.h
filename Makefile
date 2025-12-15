@@ -5,8 +5,8 @@ DIST = zvec.h
 
 CC = gcc
 CXX = g++
-CFLAGS = -Wall -Wextra -std=c11 -O2
-CXXFLAGS = -Wall -Wextra -std=c++11 -O2
+CFLAGS = -Wall -Wextra -std=c11 -O2 -I.
+CXXFLAGS = -Wall -Wextra -std=c++11 -O2 -I.
 
 all: bundle
 

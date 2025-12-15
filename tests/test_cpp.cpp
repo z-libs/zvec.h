@@ -19,7 +19,7 @@ struct Vec2
     X(int, Int)                \
     X(Vec2, Vec2)
 
-#include "../zvec.h"
+#include "zvec.h"
 
 #define TEST(name) printf("[TEST] %-40s", name);
 #define PASS() std::cout << "\033[0;32mPASS\033[0m\n";
