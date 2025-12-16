@@ -7,10 +7,11 @@ struct Point
     float x, y;
 };
 
-#include "zvec.h"
+#define Z_AUTOGEN_VECS(X) \
+    X(int, Int)           \
+    X(Point, Point)
 
-DEFINE_VEC_TYPE(int, Int)
-DEFINE_VEC_TYPE(Point, Point)
+#include "zvec.h"
 
 int main() 
 {

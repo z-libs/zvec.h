@@ -1,8 +1,10 @@
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
+#include <string>
 
 struct Vec2 
 { 
@@ -15,9 +17,11 @@ struct Vec2
     }
 };
 
+// Register std::string to test C++ memory management safety.
 #define REGISTER_ZVEC_TYPES(X) \
     X(int, Int)                \
-    X(Vec2, Vec2)
+    X(Vec2, Vec2)              \
+    X(std::string, String)
 
 #include "zvec.h"
 
@@ -165,6 +169,30 @@ void test_const_correctness()
     PASS();
 }
 
+void test_complex_types()
+{
+    TEST("Complex Types (std::string Safety)");
+
+    z_vec::vector<std::string> vec;
+    std::string s = "This string is long enough to force heap allocation, verifying memory safety.";
+
+    // 1. Push element (construct/assign).
+    vec.push_back(s);
+    assert(vec.front() == s);
+
+    // Force reallocation (reserve).
+    vec.reserve(100);
+
+    assert(vec.front() == s);
+    assert(vec.capacity() >= 100);
+
+    // Pop (destruct).
+    vec.pop_back();
+    assert(vec.empty());
+
+    PASS();
+}
+
 int main() 
 {
     std::cout << "=> Running tests (zvec.h, cpp).\n";
@@ -174,6 +202,7 @@ int main()
     test_stl_interop();
     test_access_modifiers();
     test_const_correctness();
+    test_complex_types();
 
     std::cout << "=> All tests passed successfully.\n";
     return 0;

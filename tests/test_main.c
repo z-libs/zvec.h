@@ -163,7 +163,6 @@ void test_algorithms(void)
 
     // zvec_foreach.
     int sum = 0;
-    int* it;
     zvec_foreach(&v, it) 
     {
         sum += *it;
